@@ -28,7 +28,7 @@ import cv2
 import numpy as np
 import torch
 
-from tracknet_model import TrackNetV2
+from tracknet_model import TrackNet
 
 INPUT_SIZE = (512, 288)  # largura × altura padrão do TrackNet
 
@@ -45,12 +45,14 @@ def parse_args():
 
 
 def load_model(weights_path, device):
-    model = TrackNetV2().to(device)
+    model = TrackNet().to(device)
     if weights_path and Path(weights_path).exists():
         state = torch.load(weights_path, map_location=device)
         # suporta checkpoint com ou sem wrapper de chaves
         state_dict = state.get("model", state.get("state_dict", state))
-        model.load_state_dict(state_dict, strict=False)
+        # Checkpoint usa conv1.block.0 — remapeia para conv1.0
+        state_dict = {k.replace(".block.", "."): v for k, v in state_dict.items()}
+        model.load_state_dict(state_dict, strict=True)
         print(f"Pesos carregados: {weights_path}")
     else:
         print("AVISO: rodando com pesos aleatórios — resultados não são válidos para acurácia.")
@@ -152,7 +154,10 @@ def run_spike(args):
 
         with torch.no_grad():
             tensor = preprocess_frames(list(buffer), device)
-            heatmap = model(tensor)[0, 0].cpu().numpy()
+            logits = model(tensor)  # (1, 256, H, W)
+            # Converte 256 canais em heatmap de probabilidade
+            heatmap = logits.softmax(dim=1)[0, 1:].sum(dim=0).cpu().numpy()
+            heatmap = heatmap / (heatmap.max() + 1e-8)  # normaliza 0-1
 
         point_model, confidence = heatmap_to_point(heatmap, args.threshold)
         point_video = scale_point(point_model, INPUT_SIZE, (width, height))
@@ -182,7 +187,7 @@ def run_spike(args):
         if frame_idx % 100 == 0:
             elapsed = time.time() - start
             pct = frame_idx / total_frames * 100
-            detected = "✓" if point_video else "·"
+            detected = "+" if point_video else "-"
             print(f"  Frame {frame_idx}/{total_frames} ({pct:.0f}%) {detected} conf={confidence:.3f} | {elapsed:.1f}s")
 
     cap.release()
