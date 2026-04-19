@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# ML — pesos e dados (nunca versionar)
+*.pt
+*.pth
+*.onnx
+*.weights
+ml/data/
+ml/spike/data/
+
+# Vídeos e imagens de teste
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Relatórios gerados
+*_report.json
+*_annotated.*
+*_tracknet.*
+
+# Env
+.env
+.env.*
+
+# Node
+node_modules/
+
+# Build
+dist/
+build/
+.next/
+
+# IDE
+.vscode/
+.idea/
