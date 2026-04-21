@@ -41,6 +41,9 @@ def parse_args():
     p.add_argument("--no-output", action="store_true")
     p.add_argument("--no-weights", action="store_true", help="Rodar sem pesos (teste de pipeline)")
     p.add_argument("--sample-rate", type=int, default=1)
+    p.add_argument("--court-roi", default=None,
+                   help="Coordenadas da quadra: 'x1,y1 x2,y2 x3,y3 x4,y4' (em pixels do vídeo original). "
+                        "Se omitido, abre janela para clicar os 4 cantos.")
     return p.parse_args()
 
 
@@ -86,6 +89,57 @@ def scale_point(point, from_size, to_size):
     return (int(point[0] * sx), int(point[1] * sy))
 
 
+def select_court_roi(frame):
+    """Abre janela para o usuário clicar os 4 cantos da quadra. Retorna array (4,2) int32."""
+    pts = []
+    clone = frame.copy()
+    win = "Selecione os 4 cantos da quadra (sentido horario) — ENTER para confirmar"
+
+    def on_click(event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONDOWN and len(pts) < 4:
+            pts.append((x, y))
+            cv2.circle(clone, (x, y), 6, (0, 255, 0), -1)
+            if len(pts) > 1:
+                cv2.line(clone, pts[-2], pts[-1], (0, 255, 0), 2)
+            if len(pts) == 4:
+                cv2.line(clone, pts[-1], pts[0], (0, 255, 0), 2)
+            cv2.imshow(win, clone)
+
+    cv2.namedWindow(win, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(win, 1280, 720)
+    cv2.imshow(win, clone)
+    cv2.setMouseCallback(win, on_click)
+
+    print("\nClique nos 4 cantos da quadra em sentido horario.")
+    print("Pressione ENTER para confirmar ou R para resetar.\n")
+
+    while True:
+        key = cv2.waitKey(20) & 0xFF
+        if key == ord('r'):
+            pts.clear()
+            clone[:] = frame.copy()
+            cv2.imshow(win, clone)
+        elif key in (13, ord('\r')) and len(pts) == 4:
+            break
+
+    cv2.destroyAllWindows()
+    return np.array(pts, dtype=np.int32)
+
+
+def build_court_mask(roi_pts, frame_size):
+    """Cria máscara binária (H, W) com 255 dentro do polígono da quadra."""
+    h, w = frame_size
+    mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.fillPoly(mask, [roi_pts], 255)
+    return mask
+
+
+def parse_court_roi(roi_str):
+    """Parseia '530,120 1390,120 1390,800 530,800' → array (4,2) int32."""
+    pts = [tuple(int(v) for v in p.split(",")) for p in roi_str.strip().split()]
+    return np.array(pts, dtype=np.int32)
+
+
 def run_spike(args):
     video_path = Path(args.video)
     if not video_path.exists():
@@ -109,6 +163,26 @@ def run_spike(args):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     print(f"Vídeo : {width}x{height} @ {fps:.1f}fps — {total_frames} frames\n")
+
+    # --- ROI da quadra ---
+    ret0, first_frame = cap.read()
+    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # rebobina
+    if not ret0:
+        raise RuntimeError("Não foi possível ler o primeiro frame.")
+
+    if args.court_roi:
+        roi_pts = parse_court_roi(args.court_roi)
+        print(f"ROI da quadra (argumento): {roi_pts.tolist()}")
+    else:
+        roi_pts = select_court_roi(first_frame)
+        coords_str = " ".join(f"{x},{y}" for x, y in roi_pts)
+        print(f"\nROI selecionada: --court-roi \"{coords_str}\"")
+        print("(use esse argumento nas próximas execuções para pular a seleção)\n")
+
+    court_mask_full = build_court_mask(roi_pts, (height, width))
+    # Máscara redimensionada para o espaço do modelo (INPUT_SIZE)
+    court_mask_model = cv2.resize(court_mask_full, INPUT_SIZE, interpolation=cv2.INTER_NEAREST)
+    court_mask_model = court_mask_model.astype(np.float32) / 255.0
 
     out = None
     if not args.no_output:
@@ -158,6 +232,7 @@ def run_spike(args):
             # Converte 256 canais em heatmap de probabilidade
             heatmap = logits.softmax(dim=1)[0, 1:].sum(dim=0).cpu().numpy()
             heatmap = heatmap / (heatmap.max() + 1e-8)  # normaliza 0-1
+            heatmap = heatmap * court_mask_model  # aplica ROI da quadra
 
         point_model, confidence = heatmap_to_point(heatmap, args.threshold)
         point_video = scale_point(point_model, INPUT_SIZE, (width, height))
@@ -171,6 +246,8 @@ def run_spike(args):
 
         if out:
             annotated = frame.copy()
+            # Contorno da quadra
+            cv2.polylines(annotated, [roi_pts], isClosed=True, color=(0, 255, 100), thickness=2)
             # Desenha trajetória
             for i in range(1, len(trajectory)):
                 if trajectory[i - 1] and trajectory[i]:
@@ -234,16 +311,16 @@ def _print_report(stats, fps):
     delta = ball_pct - 17.0
     print(f"  Diferença               : {delta:+.1f}pp")
     print()
-    print("DIAGNÓSTICO")
+    print("DIAGNOSTICO")
     if not stats["weights_loaded"]:
-        print("  ⚠ Pesos aleatórios — métricas de detecção inválidas.")
-        print("  ⚠ Use este resultado apenas para validar que o pipeline roda sem erros.")
+        print("  [!] Pesos aleatorios -- metricas de deteccao invalidas.")
+        print("  [!] Use este resultado apenas para validar que o pipeline roda sem erros.")
     elif ball_pct >= 60:
-        print(f"  ✓ TrackNetV2 APROVADO ({ball_pct:.0f}%) — pipeline de bola validado para o MVP")
+        print(f"  [OK] TrackNetV2 APROVADO ({ball_pct:.0f}%) -- pipeline de bola validado para o MVP")
     elif ball_pct >= 35:
-        print(f"  ~ TrackNetV2 ACEITÁVEL ({ball_pct:.0f}%) — fine-tuning com seus vídeos vai melhorar")
+        print(f"  [~]  TrackNetV2 ACEITAVEL ({ball_pct:.0f}%) -- fine-tuning com seus videos vai melhorar")
     else:
-        print(f"  ✗ TrackNetV2 INSUFICIENTE ({ball_pct:.0f}%) — fine-tuning necessário antes do MVP")
+        print(f"  [X]  TrackNetV2 INSUFICIENTE ({ball_pct:.0f}%) -- fine-tuning necessario antes do MVP")
     print(f"{'='*60}\n")
 
 
