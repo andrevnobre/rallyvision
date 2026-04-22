@@ -8,11 +8,11 @@ Detalhamento das atividades por área para a Fase 1 (MVP).
 
 Antes de construir qualquer produto, validar se a IA consegue extrair dados úteis.
 
-- [ ] Recolher 10–20 vídeos de beach tennis (YouTube, clube piloto)
+- [x] Recolher 10–20 vídeos de beach tennis (YouTube, clube piloto)
 - [ ] Anotar manualmente 3 vídeos como ground truth
-- [ ] Testar YOLOv8 out-of-the-box na deteção de bola e jogadores
-- [ ] Avaliar acurácia e definir se fine-tuning é necessário no MVP
-- [ ] Documentar resultados e decidir viabilidade técnica
+- [x] Testar YOLOv8 out-of-the-box na deteção de bola e jogadores
+- [x] Avaliar acurácia e definir se fine-tuning é necessário no MVP
+- [x] Documentar resultados e decidir viabilidade técnica
 
 **Critério de Go/No-Go:** Deteção de bola ≥ 70% sem fine-tuning, ou caminho claro para chegar lá.
 
@@ -58,8 +58,8 @@ Dois canais a validar em paralelo:
 
 ### 5a. Deteção e Rastreamento
 - [ ] Implementar deteção de quadra (homografia para normalizar perspectiva)
-- [ ] Implementar deteção de jogadores (YOLOv8 + ByteTrack)
-- [ ] Implementar deteção de bola (YOLOv8 fine-tuned ou TrackNet — decisão pendente do spike)
+- [x] Implementar deteção de jogadores (YOLOv8 + ByteTrack) — validado em spike
+- [x] Implementar deteção de bola (YOLOv8 fine-tuned) — `ball_yolo.pt` validado
 - [ ] Pipeline de pré-processamento de vídeo (resize, fps normalization)
 
 ### 5b. Extração de Stats
@@ -141,7 +141,7 @@ Aquisição individual (8) ──> corre em paralelo com (7) e (9)
 ## Decisões em Aberto
 
 - [x] **Nome final do produto:** BT Vision
-- [ ] **Modelo de GPU:** EC2 spot vs. Replicate/RunPod para controlar custos variáveis
-- [ ] **TrackNet vs. YOLOv8 para bola:** pendente resultado do spike (≥60% = aprovado)
+- [x] **TrackNet vs. YOLOv8 para bola:** YOLOv8 fine-tuned (`ball_yolo.pt`) — validado em spike
+- [x] **Modelo de GPU:** EC2 spot (AWS, tudo AWS, low-cost)
 - [ ] **Pack de câmeras:** número e posicionamento ideal por court (a validar no piloto Espinho)
 - [ ] **Equity split co-fundador:** a alinhar antes de avançar para o mercado

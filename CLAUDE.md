@@ -8,7 +8,7 @@ BT Vision is a beach tennis video analytics platform. Players/coaches upload mat
 
 ## Current Status
 
-The project is in the **validation/spike phase**. Only the ML spike (`ml/spike/`) has code. Backend, frontend, and infra directories exist but are empty.
+The ML spike phase is **complete**. Ball detection and player tracking are validated. The project is ready to move into backend/infra. Only `ml/spike/` has code; backend, frontend, and infra directories are empty.
 
 - `ml/spike/` — TrackNetV2 vs. YOLOv8 validation code
 - `docs/architecture.md` — Full system design and tech decisions
@@ -21,7 +21,8 @@ All commands run from `ml/spike/` with the `.venv` activated:
 
 ```bash
 cd ml/spike
-source .venv/Scripts/activate   # Windows Git Bash
+.venv\Scripts\Activate.ps1      # PowerShell
+# .venv\Scripts\activate        # CMD
 
 # Run TrackNet ball detection spike
 python tracknet_spike.py video.mp4 --weights tracknet_weights.pt

@@ -23,9 +23,18 @@ ml/spike/data/
 *_annotated.*
 *_tracknet.*
 
-# Env
+# ML — datasets e runs de treino
+ml/spike/dataset/
+ml/spike/dataset.zip
+runs/
+
+# Env (manter .env.example)
 .env
-.env.*
+.env.local
+infra/.env
+
+# Claude Code
+.claude/
 
 # Node
 node_modules/

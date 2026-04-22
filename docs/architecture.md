@@ -85,13 +85,33 @@
 - App Router para dashboard (cliente)
 - Deploy simples na Vercel
 
+## Stack de Produção (AWS, low-cost)
+
+```
+CloudFront + S3 (frontend estático)
+        ↓
+EC2 t3.small — Docker Compose
+  ├── FastAPI (API)
+  ├── Celery worker (CPU — gestão de jobs)
+  ├── PostgreSQL 15
+  └── Redis 7
+        ↓ (enfileira job)
+EC2 g4dn.xlarge spot (GPU worker)
+  └── Celery worker — pipeline de IA
+        ↓
+S3 (vídeos)
+```
+
+O GPU worker arranca automaticamente via Lambda quando há jobs na fila SQS e termina sozinho após idle de 5 min. Custo zero quando não há processamento.
+
 ## Estimativas de Custo (MVP)
 
 | Serviço | Custo estimado |
 |---|---|
-| EC2 g4dn.xlarge (GPU, spot) | ~US$0,20/hora |
-| Processamento de 1h de vídeo | ~30–40 min GPU ≈ US$0,10–0,15 |
-| S3 (100 vídeos × 2GB) | ~US$4,60/mês |
-| RDS PostgreSQL (db.t3.micro) | ~US$15/mês |
-| ElastiCache Redis (cache.t3.micro) | ~US$13/mês |
-| **Total infra MVP** | **~US$50–80/mês** |
+| EC2 t3.small (API + DB + Redis) | ~US$15/mês |
+| EC2 g4dn.xlarge spot (GPU, só quando processa) | ~US$0,20/hora |
+| S3 (vídeos + frontend) | ~US$2/mês |
+| CloudFront | ~US$1/mês |
+| **Total infra MVP** | **~US$20–30/mês** |
+
+Comparado com a arquitetura original (RDS + ElastiCache separados): -US$28/mês ao colapsar tudo numa instância t3.small via Docker Compose.
