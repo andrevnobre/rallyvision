@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-RallyVision is a beach tennis video analytics platform. Players/coaches upload match videos and receive automated stats (ball tracking, player heatmaps, rally extraction). Monetized as freemium SaaS (Free: 2 vids/month, Pro: R$49.90/month, Club: R$199/month).
+BT Vision is a beach tennis video analytics platform. Players/coaches upload match videos and receive automated stats (ball tracking, player heatmaps, rally extraction). Monetized as freemium SaaS (Free: 2 videos/month, Pro: €29/month, Club: €99/month). Market: Portugal first, then Brazil + Europe.
 
 ## Current Status
 
@@ -56,9 +56,9 @@ Frontend (Next.js)  →  Backend API (FastAPI + Celery)  →  ML Worker (GPU)
                         PostgreSQL        Redis + S3
 ```
 
-- **Backend:** FastAPI (async), Celery workers for long-running jobs, JWT auth, Stripe/PIX billing
+- **Backend:** FastAPI (async), Celery workers for long-running jobs, JWT auth, Stripe billing (EUR)
 - **Frontend:** Next.js with SSR, upload interface, stats dashboard, heatmaps
-- **Infra:** AWS EC2 GPU for processing, S3 for video storage, Docker Compose locally
+- **Infra:** AWS EC2 GPU for processing (eu-west-1), S3 for video storage, Docker Compose locally
 
 ## Key Design Decisions (from docs/architecture.md)
 
@@ -69,7 +69,7 @@ Frontend (Next.js)  →  Backend API (FastAPI + Celery)  →  ML Worker (GPU)
 
 ## Open Questions
 
-- Final product name
-- Beach tennis only or also padel?
 - TrackNet vs. YOLOv8 final decision (pending spike results)
-- GPU hosting: dedicated EC2 vs. on-demand vs. third-party
+- GPU hosting: EC2 spot vs. Replicate/RunPod
+- Camera hardware pack: number and positioning per court (to validate at pilot club)
+- Co-founder equity split

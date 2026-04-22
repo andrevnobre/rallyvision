@@ -8,89 +8,116 @@ Detalhamento das atividades por área para a Fase 1 (MVP).
 
 Antes de construir qualquer produto, validar se a IA consegue extrair dados úteis.
 
-- [ ] Coletar 10–20 vídeos de beach tennis (YouTube, parceiros)
+- [ ] Recolher 10–20 vídeos de beach tennis (YouTube, clube piloto)
 - [ ] Anotar manualmente 3 vídeos como ground truth
-- [ ] Testar YOLOv8 out-of-the-box na detecção de bola e jogadores
+- [ ] Testar YOLOv8 out-of-the-box na deteção de bola e jogadores
 - [ ] Avaliar acurácia e definir se fine-tuning é necessário no MVP
 - [ ] Documentar resultados e decidir viabilidade técnica
 
-**Critério de Go/No-Go:** Detecção de bola ≥ 70% sem fine-tuning, ou caminho claro para chegar lá.
+**Critério de Go/No-Go:** Deteção de bola ≥ 70% sem fine-tuning, ou caminho claro para chegar lá.
 
 ---
 
-## 2. Pesquisa de Usuário (semanas 1–3, paralelo)
+## 2. Pesquisa de Utilizador (semanas 1–3, paralelo)
 
-- [ ] Identificar 10 coaches ou jogadores competitivos para entrevistar
-- [ ] Conduzir entrevistas de 20 min: dores atuais, uso de analytics, disposição a pagar
-- [ ] Validar pricing (R$49,90/mês Pro) e casos de uso prioritários
-- [ ] Documentar insights e ajustar proposta de valor se necessário
+Dois canais a validar em paralelo:
+
+**Canal clube (co-fundador BT):**
+- [ ] Identificar 10–15 clubes/academias de beach tennis em PT (Lisboa, Porto, Algarve, Setúbal)
+- [ ] Conduzir conversas exploratórias com diretores/coaches: que métricas importam? disposição a pagar?
+- [ ] Validar modelo de canal (clube revende a alunos a 50% do preço)
+- [ ] Abrir porta no clube piloto (Espinho ou contacto mais direto)
+
+**Canal individual (co-fundador BT + André):**
+- [ ] Identificar 10 coaches individuais ou jogadores competitivos para entrevistar
+- [ ] Validar pricing (€29/mês Pro) e casos de uso prioritários
+- [ ] Perceber o que diferencia Pro individual do acesso via clube
 
 ---
 
-## 3. Infraestrutura Base (semanas 2–4)
+## 3. Clube Piloto — Hardware (semanas 2–4)
 
-- [ ] Configurar conta AWS (S3, EC2, IAM)
-- [ ] Definir arquitetura de processamento (GPU spot instances vs. serviço gerenciado)
+- [ ] Comprar e testar câmeras (validar pack ideal: número, posicionamento, resolução)
+- [ ] Instalar câmeras no clube piloto (Espinho)
+- [ ] Definir processo de upload manual diário (câmera → cloud)
+- [ ] Formalizar acordo com o clube (acesso gratuito 3 meses + 50% desconto permanente)
+
+---
+
+## 4. Infraestrutura Base (semanas 2–4)
+
+- [ ] Configurar conta AWS (S3, EC2, IAM) — região eu-west-1 (Irlanda)
+- [ ] Definir arquitetura de processamento (EC2 GPU spot instances)
 - [ ] Configurar repositório: branches, CI/CD básico, linting
 - [ ] Configurar ambiente de desenvolvimento local com Docker Compose
-- [ ] Configurar banco de dados (PostgreSQL) e cache (Redis)
+- [ ] Configurar base de dados (PostgreSQL) e cache (Redis)
 
 ---
 
-## 4. Pipeline de IA (semanas 3–8)
+## 5. Pipeline de IA (semanas 3–8)
 
-### 4a. Detecção e Rastreamento
-- [ ] Implementar detecção de quadra (homografia para normalizar perspectiva)
-- [ ] Implementar detecção de jogadores (YOLOv8 + ByteTrack)
-- [ ] Implementar detecção de bola (YOLOv8 fine-tuned ou TrackNet)
+### 5a. Deteção e Rastreamento
+- [ ] Implementar deteção de quadra (homografia para normalizar perspectiva)
+- [ ] Implementar deteção de jogadores (YOLOv8 + ByteTrack)
+- [ ] Implementar deteção de bola (YOLOv8 fine-tuned ou TrackNet — decisão pendente do spike)
 - [ ] Pipeline de pré-processamento de vídeo (resize, fps normalization)
 
-### 4b. Extração de Stats
-- [ ] Detectar início e fim de rallies
+### 5b. Extração de Stats
+- [ ] Detetar início e fim de rallies
 - [ ] Calcular posicionamento médio por jogador
-- [ ] Gerar dados para heat map de finalizações
-- [ ] Detectar pontos (bola fora ou no chão)
+- [ ] Gerar dados para heatmap de posicionamento
+- [ ] Detetar pontos (bola fora ou no chão)
 
-### 4c. Fila de Processamento
+### 5c. Fila de Processamento
 - [ ] Implementar worker Celery para processar vídeos assincronamente
-- [ ] Sistema de progresso/notificação (webhook ou polling)
+- [ ] Sistema de progresso/notificação (polling)
 - [ ] Tratamento de erros e re-tentativas
 
 ---
 
-## 5. Backend / API (semanas 5–10)
+## 6. Backend / API (semanas 5–10)
 
 - [ ] Setup FastAPI com estrutura de projeto
-- [ ] Autenticação JWT (login, registro, refresh token)
+- [ ] Autenticação JWT (login, registo, refresh token)
 - [ ] Endpoint de upload de vídeo (multipart, validação de formato/tamanho)
-- [ ] Endpoints de análise (submeter, status, resultado)
-- [ ] Endpoints de dashboard (stats por partida, histórico)
-- [ ] Sistema de planos e limites (Free: 2 vídeos/mês)
-- [ ] Integração Stripe (checkout, webhooks, gestão de assinatura)
-- [ ] Integração PIX (via Stripe ou gateway nacional)
+- [ ] Endpoints de análise (submeter, estado, resultado)
+- [ ] Endpoints de perfil individual (histórico de partidas, evolução)
+- [ ] Endpoints de dashboard coach (lista de alunos, partidas)
+- [ ] Sistema de planos e limites (Free: 2 vídeos/mês, Pro: 8 vídeos/mês, Club: 20 vídeos/mês)
+- [ ] Integração Stripe EUR (checkout, webhooks, gestão de subscrição)
 
 ---
 
-## 6. Frontend (semanas 7–12)
+## 7. Frontend (semanas 7–12)
 
 - [ ] Setup Next.js + Tailwind CSS + shadcn/ui
-- [ ] Telas de autenticação (login, registro, recuperação de senha)
-- [ ] Dashboard principal (lista de partidas analisadas)
-- [ ] Tela de upload com acompanhamento de progresso
-- [ ] Tela de resultado de análise (stats + heat map + gráficos)
-- [ ] Tela de planos e pagamento
-- [ ] Tela de perfil e histórico
+- [ ] Ecrãs de autenticação (login, registo, recuperação de password)
+- [ ] Dashboard individual (lista de partidas analisadas + heatmap pessoal)
+- [ ] Ecrã de upload com acompanhamento de progresso
+- [ ] Ecrã de resultado de análise (stats + heatmap + gráficos)
+- [ ] Perfil pessoal e histórico de evolução entre partidas
+- [ ] Dashboard do coach (vista de múltiplos alunos — simplificada no MVP)
+- [ ] Ecrã de planos e pagamento (EUR)
 
 ---
 
-## 7. Lançamento MVP (semanas 12–16)
+## 8. Aquisição Individual (semanas 8–16, paralelo)
 
-- [ ] Testes com 5 usuários beta (coaches/jogadores parceiros)
+- [ ] Criar perfil Instagram focado em beach tennis PT
+- [ ] Publicar conteúdo mostrando analytics reais (antes/depois, heatmaps)
+- [ ] Parceria com FPT (Federação Portuguesa de Ténis) para credibilidade
+- [ ] Landing page com lista de espera antes do lançamento público
+
+---
+
+## 9. Lançamento MVP (semanas 12–16)
+
+- [ ] Testes com clube piloto (Espinho) + 5 utilizadores individuais beta
 - [ ] Ajustes baseados no feedback dos beta testers
 - [ ] Setup de domínio, SSL, monitoramento (Sentry, logs)
 - [ ] Landing page de pré-lançamento
-- [ ] Lançamento para lista de espera
-- [ ] Primeiras 10 assinaturas pagas
+- [ ] Lançamento público para lista de espera
+- [ ] Meta: 10+ subscritores pagantes (Pro ou Club)
 
 ---
 
@@ -98,21 +125,23 @@ Antes de construir qualquer produto, validar se a IA consegue extrair dados úte
 
 ```
 Validação técnica (1)
-    └─> Pipeline de IA (4)
-            └─> Backend API (5)
-                    └─> Frontend (6)
-                            └─> Lançamento (7)
+    └─> Pipeline de IA (5)
+            └─> Backend API (6)
+                    └─> Frontend (7)
+                            └─> Lançamento (9)
 
-Pesquisa de usuário (2) ──> ajusta prioridades em (5) e (6)
-Infra base (3) ──> habilita (4) e (5) em paralelo
+Pesquisa de utilizador (2) ──> ajusta prioridades em (6) e (7)
+Clube piloto / hardware (3) ──> gera dados para (5) + valida modelo de canal
+Infra base (4) ──> habilita (5) e (6) em paralelo
+Aquisição individual (8) ──> corre em paralelo com (7) e (9)
 ```
 
 ---
 
 ## Decisões em Aberto
 
-- [ ] **Nome final do produto:** RallyVision é provisório
-- [ ] **Esporte foco do MVP:** Só beach tennis ou incluir padel?
-- [ ] **Modelo de GPU:** EC2 spot vs. Lambda (sem GPU, mais lento) vs. Replicate/RunPod
-- [ ] **TrackNet vs. YOLOv8 para bola:** TrackNet é especializado em bolas de raquete, pode ter melhor acurácia
-- [ ] **Parceria com federação:** Abordagem para conseguir dados e validação
+- [x] **Nome final do produto:** BT Vision
+- [ ] **Modelo de GPU:** EC2 spot vs. Replicate/RunPod para controlar custos variáveis
+- [ ] **TrackNet vs. YOLOv8 para bola:** pendente resultado do spike (≥60% = aprovado)
+- [ ] **Pack de câmeras:** número e posicionamento ideal por court (a validar no piloto Espinho)
+- [ ] **Equity split co-fundador:** a alinhar antes de avançar para o mercado
