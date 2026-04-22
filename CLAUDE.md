@@ -8,7 +8,14 @@ BT Vision is a beach tennis video analytics platform. Players/coaches upload mat
 
 ## Current Status
 
-The ML spike phase is **complete**. Ball detection and player tracking are validated. The project is ready to move into backend/infra. Only `ml/spike/` has code; backend, frontend, and infra directories are empty.
+ML spike **complete**. Backend, frontend and local infra are functional. Auth and AWS deployment pending.
+
+- `ml/spike/` — validated pipeline (`combined_spike.py`): ball + player detection
+- `backend/` — FastAPI + Celery worker + SQLAlchemy (upload, processing pipeline, status polling)
+- `frontend/` — Next.js 15: upload page + results page with heatmaps
+- `infra/` — Docker Compose local (API + worker + PostgreSQL + Redis + frontend)
+
+Run locally: `cd infra && docker compose up -d` → API at :8000, frontend at :3000
 
 - `ml/spike/` — TrackNetV2 vs. YOLOv8 validation code
 - `docs/architecture.md` — Full system design and tech decisions

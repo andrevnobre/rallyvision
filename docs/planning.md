@@ -47,10 +47,10 @@ Dois canais a validar em paralelo:
 ## 4. Infraestrutura Base (semanas 2–4)
 
 - [ ] Configurar conta AWS (S3, EC2, IAM) — região eu-west-1 (Irlanda)
-- [ ] Definir arquitetura de processamento (EC2 GPU spot instances)
+- [x] Definir arquitetura de processamento (EC2 GPU spot + t3.small, low-cost ~$20-30/mês)
 - [ ] Configurar repositório: branches, CI/CD básico, linting
-- [ ] Configurar ambiente de desenvolvimento local com Docker Compose
-- [ ] Configurar base de dados (PostgreSQL) e cache (Redis)
+- [x] Configurar ambiente de desenvolvimento local com Docker Compose
+- [x] Configurar base de dados (PostgreSQL) e cache (Redis)
 
 ---
 
@@ -69,18 +69,18 @@ Dois canais a validar em paralelo:
 - [ ] Detetar pontos (bola fora ou no chão)
 
 ### 5c. Fila de Processamento
-- [ ] Implementar worker Celery para processar vídeos assincronamente
-- [ ] Sistema de progresso/notificação (polling)
-- [ ] Tratamento de erros e re-tentativas
+- [x] Implementar worker Celery para processar vídeos assincronamente
+- [x] Sistema de progresso/notificação (polling)
+- [x] Tratamento de erros e re-tentativas (status failed + mensagem de erro)
 
 ---
 
 ## 6. Backend / API (semanas 5–10)
 
-- [ ] Setup FastAPI com estrutura de projeto
+- [x] Setup FastAPI com estrutura de projeto
 - [ ] Autenticação JWT (login, registo, refresh token)
-- [ ] Endpoint de upload de vídeo (multipart, validação de formato/tamanho)
-- [ ] Endpoints de análise (submeter, estado, resultado)
+- [x] Endpoint de upload de vídeo (multipart, validação de formato/tamanho)
+- [x] Endpoints de análise (submeter, estado, resultado)
 - [ ] Endpoints de perfil individual (histórico de partidas, evolução)
 - [ ] Endpoints de dashboard coach (lista de alunos, partidas)
 - [ ] Sistema de planos e limites (Free: 2 vídeos/mês, Pro: 8 vídeos/mês, Club: 20 vídeos/mês)
@@ -90,11 +90,11 @@ Dois canais a validar em paralelo:
 
 ## 7. Frontend (semanas 7–12)
 
-- [ ] Setup Next.js + Tailwind CSS + shadcn/ui
+- [x] Setup Next.js + Tailwind CSS
 - [ ] Ecrãs de autenticação (login, registo, recuperação de password)
 - [ ] Dashboard individual (lista de partidas analisadas + heatmap pessoal)
-- [ ] Ecrã de upload com acompanhamento de progresso
-- [ ] Ecrã de resultado de análise (stats + heatmap + gráficos)
+- [x] Ecrã de upload com acompanhamento de progresso
+- [x] Ecrã de resultado de análise (stats + heatmap + gráficos) — heatmap sem normalização de perspetiva (pendente)
 - [ ] Perfil pessoal e histórico de evolução entre partidas
 - [ ] Dashboard do coach (vista de múltiplos alunos — simplificada no MVP)
 - [ ] Ecrã de planos e pagamento (EUR)
