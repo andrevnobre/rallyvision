@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import Base, engine
@@ -10,6 +11,13 @@ app = FastAPI(
     title="BT Vision API",
     version="0.1.0",
     docs_url="/docs" if settings.environment != "production" else None,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(videos.router)
