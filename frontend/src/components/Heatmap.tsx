@@ -8,7 +8,7 @@ const COURT_W = 1920;
 const COURT_H = 1080;
 const PLAYER_COLORS = ["#3b82f6", "#f97316", "#a855f7", "#22c55e"];
 
-function topPlayers(positions: VideoResult["player_positions"], n = 2) {
+function topPlayers(positions: VideoResult["player_positions"], n = 4) {
   return Object.entries(positions)
     .sort((a, b) => b[1].length - a[1].length)
     .slice(0, n);

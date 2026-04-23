@@ -7,7 +7,7 @@ import { courtToCanvas, detectOrientation, drawCourt, pixelToCanvas } from "@/li
 
 const TRAIL_FRAMES = 30;
 const SNAP_WINDOW = 4;
-const PLAYER_COLORS: Record<number, string> = { 0: "#3b82f6", 1: "#f97316" };
+const PLAYER_COLORS: Record<number, string> = { 0: "#3b82f6", 1: "#f97316", 2: "#a855f7", 3: "#22c55e" };
 
 interface FrameEntry {
   ball?: VideoResult["ball_positions"][number];
@@ -52,7 +52,7 @@ export function CourtReplay({ videoId, result }: { videoId: string; result: Vide
   const [frameW, frameH] = result.resolution.split("x").map(Number);
 
   const topIds = useMemo(
-    () => Object.entries(result.player_positions).sort((a, b) => b[1].length - a[1].length).slice(0, 2).map(([id]) => id),
+    () => Object.entries(result.player_positions).sort((a, b) => b[1].length - a[1].length).slice(0, 4).map(([id]) => id),
     [result],
   );
 
@@ -253,8 +253,8 @@ export function CourtReplay({ videoId, result }: { videoId: string; result: Vide
             Jogador {i + 1} · ID {id} · {result.player_positions[id]?.length ?? 0} frames
           </span>
         ))}
-        {Object.keys(result.player_positions).length > 2 && (
-          <span className="text-gray-600">+ {Object.keys(result.player_positions).length - 2} IDs fragmentados</span>
+        {Object.keys(result.player_positions).length > 4 && (
+          <span className="text-gray-600">+ {Object.keys(result.player_positions).length - 4} IDs fragmentados</span>
         )}
       </div>
     </div>
