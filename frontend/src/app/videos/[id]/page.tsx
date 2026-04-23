@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { getVideo, type VideoStatus, type VideoResult } from "@/lib/api";
+import { getVideo, getThumbnailUrl, processVideo, type VideoStatus, type VideoResult } from "@/lib/api";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
+import { CourtROISelector } from "@/components/CourtROISelector";
+import { CourtReplay } from "@/components/CourtReplay";
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -16,13 +18,20 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 }
 
 function StatusBadge({ status }: { status: VideoStatus["status"] }) {
-  const styles = {
-    pending:    "bg-gray-800 text-gray-400",
-    processing: "bg-yellow-900 text-yellow-300 animate-pulse",
-    done:       "bg-green-900 text-green-300",
-    failed:     "bg-red-900 text-red-300",
+  const styles: Record<VideoStatus["status"], string> = {
+    pending_roi: "bg-blue-900 text-blue-300",
+    pending:     "bg-gray-800 text-gray-400",
+    processing:  "bg-yellow-900 text-yellow-300 animate-pulse",
+    done:        "bg-green-900 text-green-300",
+    failed:      "bg-red-900 text-red-300",
   };
-  const labels = { pending: "Na fila", processing: "A processar…", done: "Concluído", failed: "Falhou" };
+  const labels: Record<VideoStatus["status"], string> = {
+    pending_roi: "A aguardar ROI",
+    pending:     "Na fila",
+    processing:  "A processar…",
+    done:        "Concluído",
+    failed:      "Falhou",
+  };
   return (
     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${styles[status]}`}>
       {labels[status]}
@@ -34,6 +43,8 @@ export default function VideoPage() {
   const { id } = useParams<{ id: string }>();
   const [video, setVideo] = useState<VideoStatus | null>(null);
   const [result, setResult] = useState<VideoResult | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -52,6 +63,31 @@ export default function VideoPage() {
     return () => clearTimeout(timer);
   }, [id]);
 
+  async function handleROIConfirm(points: [number, number][]) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await processVideo(id, points);
+      // recarregar estado e iniciar polling
+      const v = await getVideo(id);
+      setVideo(v);
+      // polling contínuo até done/failed
+      const interval = setInterval(async () => {
+        const updated = await getVideo(id);
+        setVideo(updated);
+        if (updated.status === "done" && updated.result) {
+          setResult(JSON.parse(updated.result));
+          clearInterval(interval);
+        } else if (updated.status === "failed") {
+          clearInterval(interval);
+        }
+      }, 4000);
+    } catch (e) {
+      setError(String(e));
+      setSubmitting(false);
+    }
+  }
+
   if (!video) {
     return <div className="text-gray-500 text-center py-20">A carregar…</div>;
   }
@@ -67,6 +103,26 @@ export default function VideoPage() {
         </div>
         <StatusBadge status={video.status} />
       </div>
+
+      {video.status === "pending_roi" && (
+        <div className="flex flex-col gap-6">
+          <div className="border border-blue-800 bg-blue-950/40 rounded-xl p-4 text-sm text-blue-300">
+            Selecione a área da quadra antes de iniciar a análise.
+          </div>
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {submitting ? (
+            <div className="flex items-center gap-3 py-8 text-gray-500">
+              <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+              A enviar para processamento…
+            </div>
+          ) : (
+            <CourtROISelector
+              thumbnailUrl={getThumbnailUrl(id)}
+              onConfirm={handleROIConfirm}
+            />
+          )}
+        </div>
+      )}
 
       {(video.status === "pending" || video.status === "processing") && (
         <div className="flex flex-col items-center gap-4 py-16 text-gray-500">
@@ -107,8 +163,12 @@ export default function VideoPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <BallHeatmap positions={result.ball_positions} />
-            <PlayerHeatmap positions={result.player_positions} />
+            <BallHeatmap positions={result.ball_positions} courtRoi={result.court_roi} />
+            <PlayerHeatmap positions={result.player_positions} courtRoi={result.court_roi} />
+          </div>
+
+          <div className="border border-gray-800 rounded-xl p-5">
+            <CourtReplay videoId={id} result={result} />
           </div>
 
           <p className="text-xs text-gray-600 text-right">

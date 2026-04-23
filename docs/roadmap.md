@@ -34,6 +34,14 @@
 - [ ] Relatórios PDF em 3 níveis (Básico, Padrão, Avançado)
 - [ ] Recomendações baseadas em dados (sem LLM)
 - [ ] 5+ clubes PT no plano Club
+- [ ] **Kit 2 câmeras (lateral + fundo elevado):** fusão de vídeos multi-ângulo para posição 3D real da bola (elimina proxy do jogador; inclui guia de instalação e sincronização por áudio)
+
+#### Nota técnica — fusão multi-câmera
+Câmera lateral capta bem o eixo dos 16m (nx) mas tem ambiguidade de profundidade (ny) quando a bola está no ar.
+Câmera de fundo elevado resolve o ny com precisão.
+A fusão é feita por frame após sincronização temporal (clap/apito no início ou timecode).
+Cada câmera mantém a sua homografia; o pipeline extrai nx da lateral e ny do fundo, combinando numa posição 2D normalizada sem workarounds.
+Candidato a feature exclusiva do plano **Club**.
 
 ---
 

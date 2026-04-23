@@ -32,6 +32,13 @@ def process_video(self, video_id: str, storage_key: str):
     _set_status(video_id, "processing")
     self.update_state(state="STARTED", meta={"progress": 0})
 
+    db = SessionLocal()
+    try:
+        video = db.get(Video, video_id)
+        court_roi = json.loads(video.court_roi) if video and video.court_roi else None
+    finally:
+        db.close()
+
     try:
         with tempfile.NamedTemporaryFile(suffix=Path(storage_key).suffix, delete=False) as tmp:
             tmp_path = Path(tmp.name)
@@ -44,7 +51,7 @@ def process_video(self, video_id: str, storage_key: str):
         def on_progress(pct: int):
             self.update_state(state="PROGRESS", meta={"progress": pct})
 
-        result = run_pipeline(tmp_path, progress_cb=on_progress)
+        result = run_pipeline(tmp_path, court_roi=court_roi, progress_cb=on_progress)
         tmp_path.unlink(missing_ok=True)
 
         _set_status(video_id, "done", result=result)
