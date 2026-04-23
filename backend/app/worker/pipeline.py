@@ -24,6 +24,13 @@ BALL_WEIGHTS = MODELS_DIR / "ball_yolo.pt"
 PLAYER_WEIGHTS = "yolov8s.pt"
 
 
+def _detect_orientation(court_roi: list[list[float]]) -> str:
+    """lateral: eixo 16m é horizontal (nx). fundo: eixo 16m é vertical (ny)."""
+    xs = [p[0] for p in court_roi]
+    ys = [p[1] for p in court_roi]
+    return "lateral" if (max(xs) - min(xs)) >= (max(ys) - min(ys)) else "fundo"
+
+
 def _sort_corners(pts: np.ndarray) -> np.ndarray:
     """
     Ordena 4 cantos em: topo-esq, topo-dir, base-dir, base-esq.
@@ -81,7 +88,10 @@ def run_pipeline(
         f"sample_rate=1/{SAMPLE_RATE} → ~{total_frames // SAMPLE_RATE} frames a processar"
     )
 
-    # --- ROI / homografia ---
+    # --- orientação da câmera e ROI / homografia ---
+    camera_orientation = _detect_orientation(court_roi) if court_roi else "lateral"
+    logger.info(f"Orientação da câmera detectada: {camera_orientation}")
+
     if court_roi:
         roi_pts, H = _build_homography(court_roi, width, height)
         roi_px = [(int(nx * width), int(ny * height)) for nx, ny in court_roi]
@@ -170,14 +180,17 @@ def run_pipeline(
                 nx, ny = _normalize(bx, by, H)
                 pos["nx"], pos["ny"] = round(nx, 4), round(ny, 4)
 
-                # proxy de profundidade: câmera lateral não capta ny da bola no ar;
-                # se a bola está perto de um jogador, usa o ny dos pés do jogador
+                # proxy de profundidade: a câmera não capta bem o eixo de profundidade da bola no ar.
+                # lateral → eixo ambíguo é ny; fundo → eixo ambíguo é nx.
                 if players:
                     nearest = min(players, key=lambda p: (p["cx"] - bx) ** 2 + (p["cy"] - by) ** 2)
                     dist_px = ((nearest["cx"] - bx) ** 2 + (nearest["cy"] - by) ** 2) ** 0.5
                     if dist_px <= PLAYER_PROXY_PX:
-                        _, player_ny = _normalize(nearest["cx"], nearest["cy"], H)
-                        pos["ny"] = round(max(0.0, min(1.0, player_ny)), 4)
+                        player_nx, player_ny = _normalize(nearest["cx"], nearest["cy"], H)
+                        if camera_orientation == "fundo":
+                            pos["nx"] = round(max(0.0, min(1.0, player_nx)), 4)
+                        else:
+                            pos["ny"] = round(max(0.0, min(1.0, player_ny)), 4)
                         pos["proxy"] = True
                         pos["proxy_player_id"] = str(nearest["id"])
                         pos["proxy_dist_px"] = round(dist_px, 1)
@@ -251,6 +264,7 @@ def run_pipeline(
         "duration_s": stats["duration_s"],
         "resolution": f"{width}x{height}",
         "court_roi": court_roi,
+        "camera_orientation": camera_orientation,
         "ball_detection_pct": ball_pct,
         "player_1_detection_pct": round(stats["frames_with_1_player"] / pf * 100, 1) if pf else 0,
         "player_2_detection_pct": p2_pct,

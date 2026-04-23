@@ -15,6 +15,7 @@ export interface VideoResult {
   duration_s: number;
   resolution: string;
   court_roi: [number, number][] | null;
+  camera_orientation: "lateral" | "fundo";
   ball_detection_pct: number;
   player_1_detection_pct: number;
   player_2_detection_pct: number;

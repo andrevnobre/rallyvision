@@ -37,6 +37,14 @@ export function CourtROISelector({ thumbnailUrl, onConfirm }: Props) {
     return [top[0], top[1], bot[1], bot[0]]; // TL, TR, BR, BL
   }
 
+  function detectOrientation(pts: [number, number][]): "lateral" | "fundo" {
+    const xs = pts.map((p) => p[0]);
+    const ys = pts.map((p) => p[1]);
+    const w = Math.max(...xs) - Math.min(...xs);
+    const h = Math.max(...ys) - Math.min(...ys);
+    return w >= h ? "lateral" : "fundo";
+  }
+
   function redraw(pts: [number, number][]) {
     const canvas = canvasRef.current;
     const img = imgRef.current;
@@ -61,25 +69,34 @@ export function CourtROISelector({ thumbnailUrl, onConfirm }: Props) {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // linha da rede estimada — usa sortCorners para ser robusto à ordem de clique
+    // linha da rede estimada — adapta-se à orientação detetada
     if (pts.length === 4) {
       const sorted = sortCorners(pts); // TL, TR, BR, BL
-      const netFar = midpoint(sorted[0], sorted[1]);   // meio do topo (lado distante)
-      const netNear = midpoint(sorted[3], sorted[2]);  // meio da base (lado próximo)
-      const nfx = netFar[0] * W, nfy = netFar[1] * H;
-      const nnx = netNear[0] * W, nny = netNear[1] * H;
+      const orientation = detectOrientation(pts);
+
+      // lateral: rede liga meio-topo ↔ meio-base (linha vertical)
+      // fundo:   rede liga meio-esq  ↔ meio-dir  (linha horizontal)
+      const netA = orientation === "lateral"
+        ? midpoint(sorted[0], sorted[1])  // meio da aresta de topo
+        : midpoint(sorted[0], sorted[3]); // meio da aresta esquerda
+      const netB = orientation === "lateral"
+        ? midpoint(sorted[3], sorted[2])  // meio da aresta de base
+        : midpoint(sorted[1], sorted[2]); // meio da aresta direita
+
+      const ax = netA[0] * W, ay = netA[1] * H;
+      const bx = netB[0] * W, by = netB[1] * H;
 
       ctx.beginPath();
-      ctx.moveTo(nfx, nfy);
-      ctx.lineTo(nnx, nny);
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(bx, by);
       ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
       ctx.lineWidth = 2.5;
       ctx.setLineDash([8, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // label "REDE"
-      const mx = (nfx + nnx) / 2, my = (nfy + nny) / 2;
+      // label "REDE" no centro da linha
+      const mx = (ax + bx) / 2, my = (ay + by) / 2;
       ctx.fillStyle = "rgba(0,0,0,0.6)";
       ctx.beginPath(); ctx.roundRect(mx - 22, my - 10, 44, 20, 4); ctx.fill();
       ctx.fillStyle = "white";
@@ -108,6 +125,13 @@ export function CourtROISelector({ thumbnailUrl, onConfirm }: Props) {
     setPoints((prev) => [...prev, [nx, ny]]);
   }
 
+  const orientation = points.length === 4 ? detectOrientation(points) : null;
+  const orientationLabel = orientation === "lateral"
+    ? "câmera lateral detetada (eixo 16m horizontal)"
+    : orientation === "fundo"
+    ? "câmera de fundo detetada (eixo 16m vertical)"
+    : null;
+
   const nextLabel = points.length < 4
     ? `Ponto ${points.length + 1} de 4 — ${POINT_LABELS[points.length]}`
     : "Verifica se a linha da REDE coincide com a rede real no vídeo";
@@ -122,6 +146,9 @@ export function CourtROISelector({ thumbnailUrl, onConfirm }: Props) {
         <p className={`text-xs ${points.length === 4 ? "text-yellow-400" : "text-gray-600"}`}>
           {nextLabel}
         </p>
+        {orientationLabel && (
+          <p className="text-xs text-green-500">{orientationLabel}</p>
+        )}
       </div>
 
       <canvas

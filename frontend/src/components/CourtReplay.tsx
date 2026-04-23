@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { VideoResult } from "@/lib/api";
 import { getStreamUrl } from "@/lib/api";
-import { courtToCanvas, drawCourt, pixelToCanvas } from "@/lib/court";
+import { courtToCanvas, detectOrientation, drawCourt, pixelToCanvas } from "@/lib/court";
 
 const TRAIL_FRAMES = 30;
 const SNAP_WINDOW = 4;
@@ -48,6 +48,7 @@ export function CourtReplay({ videoId, result }: { videoId: string; result: Vide
   const [videoReady, setVideoReady] = useState(false);
 
   const normalized = result.court_roi !== null && result.ball_positions.some((p) => p.nx !== undefined);
+  const orientation = (result.camera_orientation as "lateral" | "fundo" | undefined) ?? detectOrientation(result.court_roi);
   const [frameW, frameH] = result.resolution.split("x").map(Number);
 
   const topIds = useMemo(
@@ -98,7 +99,7 @@ export function CourtReplay({ videoId, result }: { videoId: string; result: Vide
 
     ctx.fillStyle = "#0f2417";
     ctx.fillRect(0, 0, W, H);
-    drawCourt(ctx, W, H);
+    drawCourt(ctx, W, H, orientation);
 
     // trail da bola
     const trail = result.ball_positions

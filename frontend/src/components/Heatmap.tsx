@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { VideoResult } from "@/lib/api";
-import { courtToCanvas, drawCourt, pixelToCanvas } from "@/lib/court";
+import { courtToCanvas, detectOrientation, drawCourt, pixelToCanvas } from "@/lib/court";
 
 const COURT_W = 1920;
 const COURT_H = 1080;
@@ -24,6 +24,7 @@ export function BallHeatmap({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const normalized = courtRoi !== null && positions.some((p) => p.nx !== undefined);
+  const orientation = detectOrientation(courtRoi);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -34,7 +35,7 @@ export function BallHeatmap({
 
     ctx.fillStyle = "#0f2417";
     ctx.fillRect(0, 0, W, H);
-    drawCourt(ctx, W, H);
+    drawCourt(ctx, W, H, orientation);
 
     positions.forEach(({ cx, cy, conf, nx, ny, proxy }) => {
       const [x, y] = normalized && nx !== undefined
@@ -92,6 +93,7 @@ export function PlayerHeatmap({
   const normalized =
     courtRoi !== null &&
     players.some(([, frames]) => frames.some((f) => f.nx !== undefined));
+  const orientation = detectOrientation(courtRoi);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -102,7 +104,7 @@ export function PlayerHeatmap({
 
     ctx.fillStyle = "#0f2417";
     ctx.fillRect(0, 0, W, H);
-    drawCourt(ctx, W, H);
+    drawCourt(ctx, W, H, orientation);
 
     players.forEach(([, frames], i) => {
       const color = PLAYER_COLORS[i % PLAYER_COLORS.length];
