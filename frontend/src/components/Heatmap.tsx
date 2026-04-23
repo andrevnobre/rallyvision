@@ -15,52 +15,6 @@ function topPlayers(positions: VideoResult["player_positions"], n = 2) {
 }
 
 
-function drawCourtWithZones(ctx: CanvasRenderingContext2D, W: number, H: number) {
-  const pad = { x: W * 0.06, y: H * 0.15 };
-  const cw = W - pad.x * 2;
-  const ch = H - pad.y * 2;
-
-  // zona de saque (abaixo da quadra)
-  ctx.fillStyle = "rgba(255,255,255,0.03)";
-  ctx.fillRect(pad.x, pad.y + ch, cw, H * 0.1);
-  ctx.fillRect(pad.x, pad.y - H * 0.1, cw, H * 0.1);
-
-  // fundo da quadra
-  ctx.fillStyle = "#1a6b3a";
-  ctx.fillRect(pad.x, pad.y, cw, ch);
-
-  ctx.strokeStyle = "rgba(255,255,255,0.7)";
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(pad.x, pad.y, cw, ch);
-
-  // rede
-  ctx.beginPath();
-  ctx.moveTo(pad.x + cw / 2, pad.y);
-  ctx.lineTo(pad.x + cw / 2, pad.y + ch);
-  ctx.stroke();
-
-  // linhas de serviço (3m de 16m = 18.75%)
-  const svcOffset = ch * 0.1875;
-  ctx.setLineDash([4, 4]);
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
-  ctx.beginPath();
-  ctx.moveTo(pad.x, pad.y + svcOffset);
-  ctx.lineTo(pad.x + cw, pad.y + svcOffset);
-  ctx.moveTo(pad.x, pad.y + ch - svcOffset);
-  ctx.lineTo(pad.x + cw, pad.y + ch - svcOffset);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // labels das zonas
-  ctx.fillStyle = "rgba(255,255,255,0.2)";
-  ctx.font = "10px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("LOB", pad.x + cw / 2, pad.y - 6);
-  ctx.fillText("SAQUE", pad.x + cw / 4, pad.y + ch + 14);
-  ctx.fillText("SAQUE", pad.x + (cw * 3) / 4, pad.y + ch + 14);
-}
-
-
 export function BallHeatmap({
   positions,
   courtRoi,
@@ -80,7 +34,7 @@ export function BallHeatmap({
 
     ctx.fillStyle = "#0f2417";
     ctx.fillRect(0, 0, W, H);
-    drawCourtWithZones(ctx, W, H);
+    drawCourt(ctx, W, H);
 
     positions.forEach(({ cx, cy, conf, nx, ny, proxy }) => {
       const [x, y] = normalized && nx !== undefined
@@ -148,7 +102,7 @@ export function PlayerHeatmap({
 
     ctx.fillStyle = "#0f2417";
     ctx.fillRect(0, 0, W, H);
-    drawCourtWithZones(ctx, W, H);
+    drawCourt(ctx, W, H);
 
     players.forEach(([, frames], i) => {
       const color = PLAYER_COLORS[i % PLAYER_COLORS.length];
