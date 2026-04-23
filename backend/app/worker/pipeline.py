@@ -60,6 +60,7 @@ def _normalize(cx: int, cy: int, H: np.ndarray) -> tuple[float, float]:
 def run_pipeline(
     video_path: Path,
     court_roi: list[list[float]] | None = None,
+    camera_orientation: str | None = None,
     progress_cb: Callable[[int], None] | None = None,
 ) -> dict:
     from ultralytics import YOLO
@@ -89,8 +90,11 @@ def run_pipeline(
     )
 
     # --- orientação da câmera e ROI / homografia ---
-    camera_orientation = _detect_orientation(court_roi) if court_roi else "lateral"
-    logger.info(f"Orientação da câmera detectada: {camera_orientation}")
+    if camera_orientation:
+        logger.info(f"Orientação da câmera: {camera_orientation} (fornecida pelo utilizador)")
+    else:
+        camera_orientation = _detect_orientation(court_roi) if court_roi else "lateral"
+        logger.info(f"Orientação da câmera: {camera_orientation} (auto-detetada)")
 
     if court_roi:
         roi_pts, H = _build_homography(court_roi, width, height)

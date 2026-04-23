@@ -53,11 +53,15 @@ export function getStreamUrl(id: string): string {
   return `${API}/videos/${id}/stream`;
 }
 
-export async function processVideo(id: string, courtRoi: [number, number][]): Promise<void> {
+export async function processVideo(
+  id: string,
+  courtRoi: [number, number][],
+  cameraOrientation?: "lateral" | "fundo",
+): Promise<void> {
   const res = await fetch(`${API}/videos/${id}/process`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ court_roi: courtRoi }),
+    body: JSON.stringify({ court_roi: courtRoi, camera_orientation: cameraOrientation ?? null }),
   });
   if (!res.ok) throw new Error(await res.text());
 }

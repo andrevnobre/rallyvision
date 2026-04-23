@@ -63,11 +63,11 @@ export default function VideoPage() {
     return () => clearTimeout(timer);
   }, [id]);
 
-  async function handleROIConfirm(points: [number, number][]) {
+  async function handleROIConfirm(points: [number, number][], orientation: "lateral" | "fundo") {
     setSubmitting(true);
     setError(null);
     try {
-      await processVideo(id, points);
+      await processVideo(id, points, orientation);
       // recarregar estado e iniciar polling
       const v = await getVideo(id);
       setVideo(v);

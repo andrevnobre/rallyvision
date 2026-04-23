@@ -27,7 +27,7 @@ def _set_status(video_id: str, status: str, result: dict | None = None, error: s
 
 
 @celery_app.task(bind=True, name="process_video")
-def process_video(self, video_id: str, storage_key: str):
+def process_video(self, video_id: str, storage_key: str, camera_orientation: str | None = None):
     logger.info(f"[{video_id}] Iniciando processamento")
     _set_status(video_id, "processing")
     self.update_state(state="STARTED", meta={"progress": 0})
@@ -51,7 +51,7 @@ def process_video(self, video_id: str, storage_key: str):
         def on_progress(pct: int):
             self.update_state(state="PROGRESS", meta={"progress": pct})
 
-        result = run_pipeline(tmp_path, court_roi=court_roi, progress_cb=on_progress)
+        result = run_pipeline(tmp_path, court_roi=court_roi, camera_orientation=camera_orientation, progress_cb=on_progress)
         tmp_path.unlink(missing_ok=True)
 
         _set_status(video_id, "done", result=result)

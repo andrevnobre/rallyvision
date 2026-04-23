@@ -68,7 +68,7 @@ def start_processing(video_id: str, body: ProcessRequest, db: Session = Depends(
     video.status = "pending"
     db.commit()
 
-    process_video.delay(video.id, video.storage_key)
+    process_video.delay(video.id, video.storage_key, body.camera_orientation)
     return {"status": "accepted"}
 
 

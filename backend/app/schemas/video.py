@@ -25,6 +25,7 @@ class VideoStatusResponse(BaseModel):
 
 class ProcessRequest(BaseModel):
     court_roi: list[list[float]]  # [[nx, ny], ...] normalizados em [0, 1]
+    camera_orientation: str | None = None  # "lateral" | "fundo" | None (auto-detecta)
 
     @field_validator("court_roi")
     @classmethod
@@ -34,4 +35,11 @@ class ProcessRequest(BaseModel):
         for pt in v:
             if len(pt) != 2:
                 raise ValueError("Cada ponto deve ser [x, y]")
+        return v
+
+    @field_validator("camera_orientation")
+    @classmethod
+    def validate_orientation(cls, v: str | None) -> str | None:
+        if v is not None and v not in ("lateral", "fundo"):
+            raise ValueError("camera_orientation deve ser 'lateral' ou 'fundo'")
         return v
