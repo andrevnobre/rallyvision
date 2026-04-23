@@ -184,24 +184,30 @@ def run_pipeline(
                 nx, ny = _normalize(bx, by, H)
                 pos["nx"], pos["ny"] = round(nx, 4), round(ny, 4)
 
-                # proxy de profundidade: bola no ar aparece com ny menor do que a posição real
-                # (aparece mais perto do fundo distante do que está).
-                # Câmera lateral: ny nunca é fiável → aplicar sempre.
-                # Câmera de fundo: ny é parcialmente fiável; só aplicar se o jogador estiver
-                # mais perto da câmera do que o ponto onde a bola aparece (player_ny > ny_bola),
-                # garantindo que o proxy "puxa" a bola no sentido correto (em direção à câmera).
+                # proxy de profundidade: a homografia assume tudo no plano do chão.
+                # Uma bola no ar é projetada para fora desse plano → coordenadas erradas.
+                #
+                # Câmera lateral: só ny é ambíguo (a câmera vê nx diretamente).
+                #   Proxy: substitui ny pelo ny dos pés do jogador mais próximo.
+                #
+                # Câmera de fundo: bola alta desloca TANTO nx como ny para fora da quadra
+                #   (ex: bola a 2m de altura no lado dir aparece mais à direita → nx > 1).
+                #   Proxy: substitui nx e ny pela posição do jogador mais próximo.
                 if players:
                     nearest = min(players, key=lambda p: (p["cx"] - bx) ** 2 + (p["cy"] - by) ** 2)
                     dist_px = ((nearest["cx"] - bx) ** 2 + (nearest["cy"] - by) ** 2) ** 0.5
                     if dist_px <= PLAYER_PROXY_PX:
-                        _, player_ny = _normalize(nearest["cx"], nearest["cy"], H)
+                        player_nx, player_ny = _normalize(nearest["cx"], nearest["cy"], H)
+                        player_nx_c = max(0.0, min(1.0, player_nx))
                         player_ny_c = max(0.0, min(1.0, player_ny))
-                        apply = (camera_orientation != "fundo") or (player_ny_c > ny)
-                        if apply:
+                        if camera_orientation == "fundo":
+                            pos["nx"] = round(player_nx_c, 4)
                             pos["ny"] = round(player_ny_c, 4)
-                            pos["proxy"] = True
-                            pos["proxy_player_id"] = str(nearest["id"])
-                            pos["proxy_dist_px"] = round(dist_px, 1)
+                        else:
+                            pos["ny"] = round(player_ny_c, 4)
+                        pos["proxy"] = True
+                        pos["proxy_player_id"] = str(nearest["id"])
+                        pos["proxy_dist_px"] = round(dist_px, 1)
 
             stats["ball_positions"].append(pos)
 
