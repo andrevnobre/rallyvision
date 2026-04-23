@@ -163,8 +163,8 @@ export default function VideoPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <BallHeatmap positions={result.ball_positions} courtRoi={result.court_roi} />
-            <PlayerHeatmap positions={result.player_positions} courtRoi={result.court_roi} />
+            <BallHeatmap positions={result.ball_positions} courtRoi={result.court_roi} cameraOrientation={result.camera_orientation} />
+            <PlayerHeatmap positions={result.player_positions} courtRoi={result.court_roi} cameraOrientation={result.camera_orientation} />
           </div>
 
           <div className="border border-gray-800 rounded-xl p-5">

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { VideoResult } from "@/lib/api";
-import { courtToCanvas, detectOrientation, drawCourt, pixelToCanvas } from "@/lib/court";
+import { type CameraOrientation, courtToCanvas, detectOrientation, drawCourt, pixelToCanvas } from "@/lib/court";
 
 const COURT_W = 1920;
 const COURT_H = 1080;
@@ -14,17 +14,18 @@ function topPlayers(positions: VideoResult["player_positions"], n = 2) {
     .slice(0, n);
 }
 
-
 export function BallHeatmap({
   positions,
   courtRoi,
+  cameraOrientation,
 }: {
   positions: VideoResult["ball_positions"];
   courtRoi: VideoResult["court_roi"];
+  cameraOrientation?: CameraOrientation;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const normalized = courtRoi !== null && positions.some((p) => p.nx !== undefined);
-  const orientation = detectOrientation(courtRoi);
+  const orientation: CameraOrientation = cameraOrientation ?? detectOrientation(courtRoi);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -39,11 +40,11 @@ export function BallHeatmap({
 
     positions.forEach(({ cx, cy, conf, nx, ny, proxy }) => {
       const [x, y] = normalized && nx !== undefined
-        ? courtToCanvas(nx, ny!, W, H)
-        : pixelToCanvas(cx, cy, COURT_W, COURT_H, W, H);
+        ? courtToCanvas(nx, ny!, W, H, orientation)
+        : pixelToCanvas(cx, cy, COURT_W, COURT_H, W, H, orientation);
 
       const radius = 4 + conf * 8;
-      const alpha = proxy ? 1.0 : 0.35; // sem proxy = profundidade incerta
+      const alpha = proxy ? 1.0 : 0.35;
 
       const grd = ctx.createRadialGradient(x, y, 0, x, y, radius * 2.5);
       grd.addColorStop(0, `rgba(250, 204, 21, ${(0.7 + conf * 0.3) * alpha})`);
@@ -58,7 +59,7 @@ export function BallHeatmap({
       ctx.fillStyle = `rgba(255, 220, 50, ${(0.85 + conf * 0.15) * alpha})`;
       ctx.fill();
     });
-  }, [positions, normalized]);
+  }, [positions, normalized, orientation]);
 
   return (
     <div>
@@ -67,6 +68,7 @@ export function BallHeatmap({
         {normalized
           ? <span className="text-xs text-green-600">normalizado</span>
           : <span className="text-xs text-gray-600">píxeis brutos</span>}
+        <span className="text-xs text-gray-600">· {orientation}</span>
         <span className="ml-auto text-xs text-gray-600">
           {positions.length} pontos · {positions.filter(p => p.proxy).length} com proxy
         </span>
@@ -84,16 +86,18 @@ export function BallHeatmap({
 export function PlayerHeatmap({
   positions,
   courtRoi,
+  cameraOrientation,
 }: {
   positions: VideoResult["player_positions"];
   courtRoi: VideoResult["court_roi"];
+  cameraOrientation?: CameraOrientation;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const players = topPlayers(positions);
   const normalized =
     courtRoi !== null &&
     players.some(([, frames]) => frames.some((f) => f.nx !== undefined));
-  const orientation = detectOrientation(courtRoi);
+  const orientation: CameraOrientation = cameraOrientation ?? detectOrientation(courtRoi);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -110,10 +114,9 @@ export function PlayerHeatmap({
       const color = PLAYER_COLORS[i % PLAYER_COLORS.length];
       frames.forEach(({ cx, cy, nx, ny }) => {
         const [x, y] = normalized && nx !== undefined
-          ? courtToCanvas(nx, ny!, W, H)
-          : pixelToCanvas(cx, cy, COURT_W, COURT_H, W, H);
+          ? courtToCanvas(nx, ny!, W, H, orientation)
+          : pixelToCanvas(cx, cy, COURT_W, COURT_H, W, H, orientation);
 
-        // glow suave
         const grd = ctx.createRadialGradient(x, y, 0, x, y, 14);
         grd.addColorStop(0, color + "99");
         grd.addColorStop(1, color + "00");
@@ -122,14 +125,13 @@ export function PlayerHeatmap({
         ctx.fillStyle = grd;
         ctx.fill();
 
-        // ponto
         ctx.beginPath();
         ctx.arc(x, y, 5, 0, Math.PI * 2);
         ctx.fillStyle = color + "cc";
         ctx.fill();
       });
     });
-  }, [players, normalized]);
+  }, [players, normalized, orientation]);
 
   const totalPoints = players.reduce((s, [, f]) => s + f.length, 0);
 
@@ -140,6 +142,7 @@ export function PlayerHeatmap({
         {normalized
           ? <span className="text-xs text-green-600">normalizado</span>
           : <span className="text-xs text-gray-600">píxeis brutos</span>}
+        <span className="text-xs text-gray-600">· {orientation}</span>
         <span className="ml-auto text-xs text-gray-600">{totalPoints} pontos</span>
       </div>
       <canvas

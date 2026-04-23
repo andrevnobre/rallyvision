@@ -61,8 +61,8 @@ export function CourtReplay({ videoId, result }: { videoId: string; result: Vide
 
   function pos(cx: number, cy: number, nx: number | undefined, ny: number | undefined, W: number, H: number): [number, number] {
     return normalized && nx !== undefined
-      ? courtToCanvas(nx, ny!, W, H)
-      : pixelToCanvas(cx, cy, frameW, frameH, W, H);
+      ? courtToCanvas(nx, ny!, W, H, orientation)
+      : pixelToCanvas(cx, cy, frameW, frameH, W, H, orientation);
   }
 
   function playerColor(id: string) {

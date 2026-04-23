@@ -4,15 +4,21 @@
 //   nx ∈ [0,1] → eixo horizontal na imagem (left→right)
 //   ny ∈ [0,1] → eixo vertical na imagem (top→bottom)
 //
-// Câmera lateral:  nx = 16m (linha de fundo → linha de fundo), ny = 8m (lateral→lateral)
-//   Rede: vertical em nx=0.5 | Linhas de serviço: verticais em nx=0.3125 e nx=0.6875
+// Câmera lateral:  nx = 16m, ny = 8m  → quadra 2:1 (landscape)
+// Câmera de fundo: nx = 8m,  ny = 16m → quadra 1:2 (portrait)
 //
-// Câmera de fundo: nx = 8m (lateral→lateral), ny = 16m (linha de fundo → linha de fundo)
-//   Rede: horizontal em ny=0.5 | Linhas de serviço: horizontais em ny=0.3125 e ny=0.6875
+// O PAD é calculado para manter as proporções reais da quadra no canvas 640×360:
+//   lateral: PAD.x=0.08, PAD.y=0.12 → cw/ch ≈ 2.0 ≈ 16/8 ✓
+//   fundo:   PAD.x=0.37, PAD.y=0.04 → cw/ch ≈ 0.5 ≈ 8/16 ✓
 
 export type CameraOrientation = "lateral" | "fundo";
 
-export const PAD = { x: 0.08, y: 0.12 }; // fracção do canvas (inclui zona de saque)
+const PADS: Record<CameraOrientation, { x: number; y: number }> = {
+  lateral: { x: 0.08, y: 0.12 },
+  fundo:   { x: 0.37, y: 0.04 },
+};
+
+export const PAD = PADS.lateral; // backwards compat para código antigo
 
 export function detectOrientation(courtRoi: [number, number][] | null): CameraOrientation {
   if (!courtRoi || courtRoi.length < 4) return "lateral";
@@ -28,9 +34,11 @@ export function courtToCanvas(
   ny: number,
   W: number,
   H: number,
+  orientation: CameraOrientation = "lateral",
 ): [number, number] {
-  const px = W * PAD.x;
-  const py = H * PAD.y;
+  const { x: padX, y: padY } = PADS[orientation];
+  const px = W * padX;
+  const py = H * padY;
   return [px + nx * (W - px * 2), py + ny * (H - py * 2)];
 }
 
@@ -41,8 +49,9 @@ export function pixelToCanvas(
   frameH: number,
   W: number,
   H: number,
+  orientation: CameraOrientation = "lateral",
 ): [number, number] {
-  return courtToCanvas(cx / frameW, cy / frameH, W, H);
+  return courtToCanvas(cx / frameW, cy / frameH, W, H, orientation);
 }
 
 export function drawCourt(
@@ -51,8 +60,9 @@ export function drawCourt(
   H: number,
   orientation: CameraOrientation = "lateral",
 ) {
-  const px = W * PAD.x;
-  const py = H * PAD.y;
+  const { x: padX, y: padY } = PADS[orientation];
+  const px = W * padX;
+  const py = H * padY;
   const cw = W - px * 2;
   const ch = H - py * 2;
 
@@ -83,10 +93,8 @@ export function drawCourt(
     ctx.strokeStyle = "rgba(255,255,255,0.4)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(svcX1, py);
-    ctx.lineTo(svcX1, py + ch);
-    ctx.moveTo(svcX2, py);
-    ctx.lineTo(svcX2, py + ch);
+    ctx.moveTo(svcX1, py); ctx.lineTo(svcX1, py + ch);
+    ctx.moveTo(svcX2, py); ctx.lineTo(svcX2, py + ch);
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -125,10 +133,8 @@ export function drawCourt(
     ctx.strokeStyle = "rgba(255,255,255,0.4)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(px, svcY1);
-    ctx.lineTo(px + cw, svcY1);
-    ctx.moveTo(px, svcY2);
-    ctx.lineTo(px + cw, svcY2);
+    ctx.moveTo(px, svcY1); ctx.lineTo(px + cw, svcY1);
+    ctx.moveTo(px, svcY2); ctx.lineTo(px + cw, svcY2);
     ctx.stroke();
     ctx.setLineDash([]);
 
