@@ -184,17 +184,15 @@ def run_pipeline(
                 nx, ny = _normalize(bx, by, H)
                 pos["nx"], pos["ny"] = round(nx, 4), round(ny, 4)
 
-                # proxy de profundidade: a câmera não capta bem o eixo de profundidade da bola no ar.
-                # lateral → eixo ambíguo é ny; fundo → eixo ambíguo é nx.
+                # proxy de profundidade: bola no ar aparece sempre mais alta na imagem do que a sua
+                # posição real — tanto em câmera lateral (ny = eixo 8m) como de fundo (ny = eixo 16m).
+                # O proxy substitui ny da bola pelo ny dos pés do jogador mais próximo.
                 if players:
                     nearest = min(players, key=lambda p: (p["cx"] - bx) ** 2 + (p["cy"] - by) ** 2)
                     dist_px = ((nearest["cx"] - bx) ** 2 + (nearest["cy"] - by) ** 2) ** 0.5
                     if dist_px <= PLAYER_PROXY_PX:
-                        player_nx, player_ny = _normalize(nearest["cx"], nearest["cy"], H)
-                        if camera_orientation == "fundo":
-                            pos["nx"] = round(max(0.0, min(1.0, player_nx)), 4)
-                        else:
-                            pos["ny"] = round(max(0.0, min(1.0, player_ny)), 4)
+                        _, player_ny = _normalize(nearest["cx"], nearest["cy"], H)
+                        pos["ny"] = round(max(0.0, min(1.0, player_ny)), 4)
                         pos["proxy"] = True
                         pos["proxy_player_id"] = str(nearest["id"])
                         pos["proxy_dist_px"] = round(dist_px, 1)
