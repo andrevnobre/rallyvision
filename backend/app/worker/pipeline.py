@@ -18,6 +18,8 @@ PLAYER_CONF = 0.3
 SAMPLE_RATE = 2  # processa 1 em cada 2 frames (30fps efetivo em vídeo 60fps)
 LOG_INTERVAL = 50  # linhas de log a cada N frames processados
 PLAYER_PROXY_PX = 220  # distância máxima (px) para usar ny do jogador como proxy de profundidade da bola
+MAX_BALL_JUMP = 0.30        # dist. máx. normalizada entre frames para aceitar deteção (Kalman)
+KALMAN_LOST_FRAMES = 5      # frames consecutivos rejeitados/ausentes antes de reset do filtro
 
 MODELS_DIR = Path("/ml/spike")
 BALL_WEIGHTS = MODELS_DIR / "ball_yolo.pt"
@@ -55,6 +57,59 @@ def _build_homography(
 def _normalize(cx: int, cy: int, H: np.ndarray) -> tuple[float, float]:
     pt = cv2.perspectiveTransform(np.float32([[[cx, cy]]]), H)[0][0]
     return round(float(pt[0]), 4), round(float(pt[1]), 4)
+
+
+class _BallKalman:
+    """Kalman de velocidade constante em espaço normalizado [0,1] para rastreio da bola."""
+
+    def __init__(self):
+        kf = cv2.KalmanFilter(4, 2)
+        kf.transitionMatrix = np.float32([[1, 0, 1, 0],
+                                          [0, 1, 0, 1],
+                                          [0, 0, 1, 0],
+                                          [0, 0, 0, 1]])
+        kf.measurementMatrix = np.float32([[1, 0, 0, 0],
+                                           [0, 1, 0, 0]])
+        kf.processNoiseCov = np.eye(4, dtype=np.float32) * 5e-4
+        kf.measurementNoiseCov = np.eye(2, dtype=np.float32) * 5e-3
+        kf.errorCovPost = np.eye(4, dtype=np.float32) * 0.1
+        self.kf = kf
+        self.initialized = False
+        self.lost = 0
+
+    def step(self, nx: float | None, ny: float | None) -> tuple[float, float] | None:
+        """Avança o filtro um frame. Retorna posição suavizada ou None se rejeitado."""
+        pred = None
+        if self.initialized:
+            p = self.kf.predict()
+            pred = (float(p[0]), float(p[1]))
+
+        if nx is None:
+            if self.initialized:
+                self.lost += 1
+                if self.lost > KALMAN_LOST_FRAMES:
+                    self.initialized = False
+            return None
+
+        # rejeitar se salto impossível face à previsão
+        if pred is not None:
+            d = ((nx - pred[0]) ** 2 + (ny - pred[1]) ** 2) ** 0.5
+            if d > MAX_BALL_JUMP:
+                self.lost += 1
+                if self.lost > KALMAN_LOST_FRAMES:
+                    self.initialized = False
+                return None
+
+        # aceitar medição
+        if not self.initialized:
+            self.kf.statePost = np.float32([[nx], [ny], [0.0], [0.0]])
+            self.initialized = True
+        else:
+            self.kf.correct(np.float32([[nx], [ny]]))
+
+        self.lost = 0
+        s = self.kf.statePost
+        return float(s[0]), float(s[1])
 
 
 def run_pipeline(
@@ -131,6 +186,7 @@ def run_pipeline(
     last_progress = -1
     last_log_pf = 0
 
+    ball_kf = _BallKalman()
     logger.info("Iniciando loop de deteção...")
 
     while cap.isOpened():
@@ -175,24 +231,15 @@ def run_pipeline(
         pf = stats["processed_frames"] + 1
         stats["processed_frames"] = pf
 
+        ball_accepted = False
         if balls:
-            stats["frames_with_ball"] += 1
-            stats["ball_confidences"].append(balls[0]["conf"])
+            bx, by = balls[0]["cx"], balls[0]["cy"]
             pos = {"frame": frame_idx, **balls[0]}
             if H is not None:
-                bx, by = balls[0]["cx"], balls[0]["cy"]
                 nx, ny = _normalize(bx, by, H)
                 pos["nx"], pos["ny"] = round(nx, 4), round(ny, 4)
 
-                # proxy de profundidade: a homografia assume tudo no plano do chão.
-                # Uma bola no ar é projetada para fora desse plano → coordenadas erradas.
-                #
-                # Câmera lateral: só ny é ambíguo (a câmera vê nx diretamente).
-                #   Proxy: substitui ny pelo ny dos pés do jogador mais próximo.
-                #
-                # Câmera de fundo: bola alta desloca TANTO nx como ny para fora da quadra
-                #   (ex: bola a 2m de altura no lado dir aparece mais à direita → nx > 1).
-                #   Proxy: substitui nx e ny pela posição do jogador mais próximo.
+                # proxy: corrige altitude da bola (homografia assume plano do chão)
                 if players:
                     nearest = min(players, key=lambda p: (p["cx"] - bx) ** 2 + (p["cy"] - by) ** 2)
                     dist_px = ((nearest["cx"] - bx) ** 2 + (nearest["cy"] - by) ** 2) ** 0.5
@@ -209,14 +256,28 @@ def run_pipeline(
                         pos["proxy_player_id"] = str(nearest["id"])
                         pos["proxy_dist_px"] = round(dist_px, 1)
 
-            stats["ball_positions"].append(pos)
+                # Kalman: rejeita falsos positivos e suaviza trajetória
+                kf_result = ball_kf.step(pos["nx"], pos["ny"])
+                if kf_result is not None:
+                    pos["nx"], pos["ny"] = round(kf_result[0], 4), round(kf_result[1], 4)
+                    ball_accepted = True
+            else:
+                ball_accepted = True  # sem homografia: sem Kalman
+
+            if ball_accepted:
+                stats["frames_with_ball"] += 1
+                stats["ball_confidences"].append(balls[0]["conf"])
+                stats["ball_positions"].append(pos)
+        else:
+            if H is not None:
+                ball_kf.step(None, None)  # avança o filtro mesmo sem deteção
 
         if len(players) >= 1:
             stats["frames_with_1_player"] += 1
         if len(players) >= 2:
             stats["frames_with_2_players"] += 1
             stats["player_confidences"].extend(p["conf"] for p in players)
-        if balls and len(players) >= 2:
+        if ball_accepted and len(players) >= 2:
             stats["frames_with_ball_and_2_players"] += 1
 
         for p in players:
