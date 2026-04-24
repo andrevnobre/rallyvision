@@ -82,7 +82,7 @@ class _BallKalman:
         pred = None
         if self.initialized:
             p = self.kf.predict()
-            pred = (float(p[0]), float(p[1]))
+            pred = (float(p[0, 0]), float(p[1, 0]))
 
         if nx is None:
             if self.initialized:
@@ -109,7 +109,7 @@ class _BallKalman:
 
         self.lost = 0
         s = self.kf.statePost
-        return float(s[0]), float(s[1])
+        return float(s[0, 0]), float(s[1, 0])
 
 
 def run_pipeline(
