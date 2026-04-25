@@ -112,7 +112,7 @@ export default function VideoPage() {
 
           {/* ── PENDING_ROI ── */}
           {video.status === "pending_roi" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 32, padding: "32px 0", alignItems: "start" }}>
+            <div className="bv-grid-sidebar" style={{ gap: 32, padding: "32px 0" }}>
               <div>
                 {submitting ? (
                   <div style={{ aspectRatio: "16/9", background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-lg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
@@ -215,7 +215,7 @@ export default function VideoPage() {
               </div>
 
               {/* STAT CARDS */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 32 }}>
+              <div className="bv-grid-4" style={{ gap: 16, marginBottom: 32 }}>
                 <div className="bv-stat-card">
                   <div className="bv-stat-label">Bola detetada</div>
                   <div className="bv-stat-value" style={{ color: "var(--green-l)" }}>{result.ball_detection_pct}%</div>
@@ -239,7 +239,7 @@ export default function VideoPage() {
               </div>
 
               {/* HEATMAPS */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32 }}>
+              <div className="bv-grid-2" style={{ gap: 24, marginBottom: 32 }}>
                 <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
                   <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div style={{ fontFamily: "var(--f-head)", fontSize: 14, fontWeight: 600 }}>Heatmap — Bola</div>

@@ -183,11 +183,11 @@ export default function LandingPage() {
       <section style={{ minHeight: "calc(100vh - 60px)", display: "flex", flexDirection: "column", justifyContent: "center", position: "relative", overflow: "hidden", padding: "80px 0 60px" }}>
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 70% 60% at 65% 50%, rgba(22,163,74,0.06) 0%, transparent 60%), radial-gradient(ellipse 40% 50% at 20% 80%, rgba(37,99,235,0.04) 0%, transparent 50%)" }} />
         <div className="bv-container">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
+          <div className="bv-grid-hero" style={{ gap: 64, alignItems: "center" }}>
             <div>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--green-bg)", border: "1px solid var(--green-dim)", borderRadius: 100, padding: "6px 14px", marginBottom: 28, fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--green-l)", letterSpacing: "0.04em" }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--green-l)" }} />
-                Lançamento em Portugal · 2025
+                Lançamento em Portugal · 2026
               </div>
               <h1 style={{ fontSize: "clamp(36px, 4vw, 54px)", fontWeight: 700, marginBottom: 20 }}>
                 Analisa cada rally.<br /><em style={{ fontStyle: "normal", color: "var(--green-l)" }}>Melhora cada ponto.</em>
@@ -260,7 +260,7 @@ export default function LandingPage() {
           <p style={{ fontSize: 17, color: "var(--text-muted)", maxWidth: 520, lineHeight: 1.65, marginBottom: 56, fontWeight: 300 }}>
             Tudo o que precisas para analisar uma partida — entregue automaticamente após o upload do vídeo.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24 }}>
+          <div className="bv-grid-3" style={{ gap: 24 }}>
             {FEATURES.map(f => (
               <div key={f.title} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "32px 28px", display: "flex", flexDirection: "column", gap: 16, transition: "border-color 0.2s, transform 0.2s" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "var(--border-2)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
@@ -281,7 +281,7 @@ export default function LandingPage() {
         <div className="bv-container">
           <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--green)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Como funciona</div>
           <h2 style={{ fontSize: "clamp(28px, 3vw, 42px)", fontWeight: 700, marginBottom: 0 }}>Três passos. Nenhuma configuração.</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center", marginTop: 56 }}>
+          <div className="bv-grid-2" style={{ gap: 80, alignItems: "center", marginTop: 56 }}>
             <div style={{ display: "flex", flexDirection: "column" }}>
               {HOW_STEPS.map((s, i) => (
                 <div key={s.num} onClick={() => setActiveStep(i)}
@@ -309,7 +309,7 @@ export default function LandingPage() {
           <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--green)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Planos</div>
           <h2 style={{ fontSize: "clamp(28px, 3vw, 42px)", fontWeight: 700, marginBottom: 16 }}>Simples. Sem surpresas.</h2>
           <p style={{ fontSize: 17, color: "var(--text-muted)", marginBottom: 0, fontWeight: 300 }}>Começa grátis. Escala conforme precisas.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24, marginTop: 56, alignItems: "start" }}>
+          <div className="bv-grid-3" style={{ gap: 24, marginTop: 56, alignItems: "start" }}>
             {PLANS.map(p => (
               <div key={p.tier} style={{ background: "var(--surface)", border: `1px solid ${p.featured ? "var(--green)" : "var(--border)"}`, borderRadius: "var(--radius-lg)", padding: "32px 28px", display: "flex", flexDirection: "column", gap: 24, position: "relative", boxShadow: p.featured ? "0 0 0 1px var(--green), 0 20px 60px rgba(22,163,74,0.1)" : "none" }}>
                 {p.featured && <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "var(--green)", color: "#fff", fontFamily: "var(--f-head)", fontSize: 12, fontWeight: 600, padding: "4px 14px", borderRadius: 100, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>Mais popular</div>}
@@ -358,7 +358,7 @@ export default function LandingPage() {
             <div className="bv-nav-logo-dot" />
             BT Vision
           </Link>
-          <div style={{ fontSize: 13, color: "var(--text-dim)" }}>© 2025 BT Vision. Todos os direitos reservados.</div>
+          <div style={{ fontSize: 13, color: "var(--text-dim)" }}>© 2026 BT Vision. Todos os direitos reservados.</div>
           <div style={{ display: "flex", gap: 24 }}>
             {["Privacidade","Termos","Contacto"].map(l => (
               <a key={l} href="#" style={{ fontSize: 13, color: "var(--text-dim)", transition: "color 0.15s" }}

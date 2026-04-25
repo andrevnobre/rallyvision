@@ -100,11 +100,11 @@ export default function Home() {
           <div className="bv-header-sep" />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span className={`bv-badge bv-badge-${userPlan}`} style={{ textTransform: "capitalize" }}>{userPlan}</span>
-            <span style={{ fontSize: 13, color: "var(--text-dim)" }}>{doneCount} de {planAnalyses} análises usadas este mês</span>
+            <span className="bv-hide-mobile" style={{ fontSize: 13, color: "var(--text-dim)" }}>{doneCount} de {planAnalyses} análises usadas este mês</span>
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {userEmail && <span style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: "var(--f-head)" }}>{userEmail}</span>}
+            {userEmail && <span className="bv-hide-mobile" style={{ fontSize: 13, color: "var(--text-muted)", fontFamily: "var(--f-head)" }}>{userEmail}</span>}
             <button className="bv-btn-logout" onClick={logout}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
               Sair
@@ -129,7 +129,7 @@ export default function Home() {
           </div>
 
           {/* STAT STRIP */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 40 }}>
+          <div className="bv-grid-3" style={{ gap: 16, marginBottom: 40 }}>
             {[
               { icon: <svg viewBox="0 0 24 24" fill="none" stroke="var(--green-l)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>, val: String(videos.length), lbl: "Vídeos carregados", iconBg: "var(--green-bg)" },
               { icon: <svg viewBox="0 0 24 24" fill="none" stroke="var(--green-l)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>, val: String(doneCount), lbl: "Análises concluídas", iconBg: "var(--green-bg)" },
@@ -154,7 +154,7 @@ export default function Home() {
             onDragLeave={() => setDragOver(false)}
             onDrop={onDrop}
             style={{
-              border: "2px dashed var(--border-2)", borderRadius: 16, padding: "52px 32px",
+              border: "2px dashed var(--border-2)", borderRadius: 16, padding: "clamp(28px, 5vw, 52px) clamp(16px, 4vw, 32px)",
               textAlign: "center", cursor: uploading ? "default" : "pointer",
               transition: "all 0.2s", position: "relative",
               background: dragOver ? "var(--green-bg)" : "var(--surface)",
@@ -229,7 +229,7 @@ export default function Home() {
                 const cfg = STATUS_CFG[v.status];
                 const actionLabel = v.status === "done" ? "Ver resultados" : v.status === "pending_roi" ? "Marcar quadra" : v.status === "processing" ? "Ver progresso" : v.status === "failed" ? "Ver erro" : null;
                 return (
-                  <Link key={v.id} href={`/videos/${v.id}`} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "20px 24px", display: "flex", alignItems: "center", gap: 20, transition: "border-color 0.15s", textDecoration: "none" }}
+                  <Link key={v.id} href={`/videos/${v.id}`} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", transition: "border-color 0.15s", textDecoration: "none" }}
                     onMouseEnter={e => (e.currentTarget.style.borderColor = "var(--border-2)")}
                     onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}>
                     {/* Mini court thumbnail */}

@@ -186,3 +186,27 @@ h1,h2,h3,h4 { font-family: var(--f-head); letter-spacing: -0.02em; line-height: 
   padding: 40px 0;
   background: var(--bg);
 }
+
+/* RESPONSIVE GRIDS — desktop defaults */
+.bv-grid-2       { display: grid; grid-template-columns: 1fr 1fr; }
+.bv-grid-3       { display: grid; grid-template-columns: repeat(3, 1fr); }
+.bv-grid-4       { display: grid; grid-template-columns: repeat(4, 1fr); }
+.bv-grid-hero    { display: grid; grid-template-columns: 1fr 1fr; }
+.bv-grid-sidebar { display: grid; grid-template-columns: 1fr 320px; align-items: start; }
+
+@media (max-width: 768px) {
+  .bv-container        { padding: 0 16px; }
+  .bv-grid-hero        { grid-template-columns: 1fr; }
+  .bv-grid-sidebar     { grid-template-columns: 1fr; }
+  .bv-grid-2           { grid-template-columns: 1fr; }
+  .bv-grid-3           { grid-template-columns: 1fr 1fr; }
+  .bv-grid-4           { grid-template-columns: 1fr 1fr; }
+  .bv-stat-value       { font-size: 26px; }
+  .bv-hide-mobile      { display: none !important; }
+  .bv-auth-header-inner { gap: 8px; }
+  .bv-stat-card        { padding: 16px 18px; }
+}
+
+@media (max-width: 480px) {
+  .bv-grid-3 { grid-template-columns: 1fr; }
+}
