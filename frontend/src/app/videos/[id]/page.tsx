@@ -112,21 +112,19 @@ export default function VideoPage() {
 
           {/* ── PENDING_ROI ── */}
           {video.status === "pending_roi" && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, padding: "32px 0" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 32, padding: "32px 0", alignItems: "start" }}>
               <div>
-                <div style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-lg)", overflow: "hidden", position: "relative", aspectRatio: "16/9", cursor: "crosshair" }}>
-                  {submitting ? (
-                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-                      <div className="bv-spinner" style={{ width: 48, height: 48, borderWidth: 3 }} />
-                      <span style={{ fontSize: 14, color: "var(--text-muted)" }}>A enviar para processamento…</span>
-                    </div>
-                  ) : (
-                    <CourtROISelector thumbnailUrl={getThumbnailUrl(id)} onConfirm={handleROIConfirm} />
-                  )}
-                </div>
+                {submitting ? (
+                  <div style={{ aspectRatio: "16/9", background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-lg)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+                    <div className="bv-spinner" style={{ width: 48, height: 48, borderWidth: 3 }} />
+                    <span style={{ fontSize: 14, color: "var(--text-muted)" }}>A enviar para processamento…</span>
+                  </div>
+                ) : (
+                  <CourtROISelector thumbnailUrl={getThumbnailUrl(id)} onConfirm={handleROIConfirm} />
+                )}
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "32px 0" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 <div style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-lg)", padding: 24 }}>
                   <h3 style={{ fontFamily: "var(--f-head)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Marca os cantos da quadra</h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
