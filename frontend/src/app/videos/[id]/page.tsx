@@ -2,53 +2,39 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { getVideo, getThumbnailUrl, processVideo, type VideoStatus, type VideoResult } from "@/lib/api";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { getVideo, getThumbnailUrl, processVideo, removeToken, type VideoStatus, type VideoResult } from "@/lib/api";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtROISelector } from "@/components/CourtROISelector";
 import { CourtReplay } from "@/components/CourtReplay";
 
-function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-      <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-3xl font-bold">{value}</p>
-      {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
-    </div>
-  );
-}
+const STATUS_CFG: Record<VideoStatus["status"], { label: string; cls: string }> = {
+  pending_roi:  { label: "Aguarda ROI",  cls: "bv-badge bv-badge-roi" },
+  pending:      { label: "Na fila",      cls: "bv-badge bv-badge-pending" },
+  processing:   { label: "A processar", cls: "bv-badge bv-badge-processing" },
+  done:         { label: "Concluído",   cls: "bv-badge bv-badge-done" },
+  failed:       { label: "Falhou",      cls: "bv-badge bv-badge-failed" },
+};
 
-function StatusBadge({ status }: { status: VideoStatus["status"] }) {
-  const styles: Record<VideoStatus["status"], string> = {
-    pending_roi: "bg-blue-900 text-blue-300",
-    pending:     "bg-gray-800 text-gray-400",
-    processing:  "bg-yellow-900 text-yellow-300 animate-pulse",
-    done:        "bg-green-900 text-green-300",
-    failed:      "bg-red-900 text-red-300",
-  };
-  const labels: Record<VideoStatus["status"], string> = {
-    pending_roi: "A aguardar ROI",
-    pending:     "Na fila",
-    processing:  "A processar…",
-    done:        "Concluído",
-    failed:      "Falhou",
-  };
-  return (
-    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${styles[status]}`}>
-      {labels[status]}
-    </span>
-  );
+function formatDuration(s: number) {
+  const m = Math.floor(s / 60);
+  const sec = Math.round(s % 60);
+  return `${m}:${String(sec).padStart(2, "0")}`;
 }
 
 export default function VideoPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [video, setVideo] = useState<VideoStatus | null>(null);
   const [result, setResult] = useState<VideoResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function logout() { removeToken(); router.push("/auth/login"); }
+
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
-
     async function poll() {
       const v = await getVideo(id);
       setVideo(v);
@@ -58,7 +44,6 @@ export default function VideoPage() {
         timer = setTimeout(poll, 4000);
       }
     }
-
     poll();
     return () => clearTimeout(timer);
   }, [id]);
@@ -68,10 +53,8 @@ export default function VideoPage() {
     setError(null);
     try {
       await processVideo(id, points, orientation);
-      // recarregar estado e iniciar polling
       const v = await getVideo(id);
       setVideo(v);
-      // polling contínuo até done/failed
       const interval = setInterval(async () => {
         const updated = await getVideo(id);
         setVideo(updated);
@@ -89,93 +72,228 @@ export default function VideoPage() {
   }
 
   if (!video) {
-    return <div className="text-gray-500 text-center py-20">A carregar…</div>;
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="bv-spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
+      </div>
+    );
   }
 
+  const statusCfg = STATUS_CFG[video.status];
+
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold truncate max-w-sm">{video.filename}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {new Date(video.created_at).toLocaleString("pt-PT")}
-          </p>
-        </div>
-        <StatusBadge status={video.status} />
-      </div>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
 
-      {video.status === "pending_roi" && (
-        <div className="flex flex-col gap-6">
-          <div className="border border-blue-800 bg-blue-950/40 rounded-xl p-4 text-sm text-blue-300">
-            Selecione a área da quadra antes de iniciar a análise.
-          </div>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-          {submitting ? (
-            <div className="flex items-center gap-3 py-8 text-gray-500">
-              <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-              A enviar para processamento…
+      {/* AUTH HEADER */}
+      <header className="bv-auth-header">
+        <div className="bv-container bv-auth-header-inner">
+          <Link href="/" className="bv-nav-logo" style={{ fontSize: 16 }}>
+            <div className="bv-nav-logo-dot" />
+            BT Vision
+          </Link>
+          <div className="bv-header-sep" />
+          <nav style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--text-dim)", fontFamily: "var(--f-head)" }}>
+            <Link href="/" style={{ color: "var(--text-dim)" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "var(--text)")}
+              onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}>Vídeos</Link>
+            <span style={{ color: "var(--surface-3)" }}>/</span>
+            <span style={{ color: "var(--text)", fontWeight: 500, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{video.filename}</span>
+          </nav>
+          <div style={{ flex: 1 }} />
+          <button className="bv-btn-logout" onClick={logout}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+            Sair
+          </button>
+        </div>
+      </header>
+
+      <main style={{ flex: 1, padding: "0 0 80px" }}>
+        <div className="bv-container">
+
+          {/* ── PENDING_ROI ── */}
+          {video.status === "pending_roi" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, padding: "32px 0" }}>
+              <div>
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-lg)", overflow: "hidden", position: "relative", aspectRatio: "16/9", cursor: "crosshair" }}>
+                  {submitting ? (
+                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+                      <div className="bv-spinner" style={{ width: 48, height: 48, borderWidth: 3 }} />
+                      <span style={{ fontSize: 14, color: "var(--text-muted)" }}>A enviar para processamento…</span>
+                    </div>
+                  ) : (
+                    <CourtROISelector thumbnailUrl={getThumbnailUrl(id)} onConfirm={handleROIConfirm} />
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 20, padding: "32px 0" }}>
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-lg)", padding: 24 }}>
+                  <h3 style={{ fontFamily: "var(--f-head)", fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Marca os cantos da quadra</h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {["Canto superior esquerdo","Canto superior direito","Canto inferior direito","Canto inferior esquerdo"].map((label, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 12, fontSize: 14, color: "var(--text-muted)" }}>
+                        <div style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, background: "var(--surface-2)", border: "1px solid var(--border-2)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--f-head)", fontSize: 12, fontWeight: 600, color: "var(--text-dim)" }}>{i + 1}</div>
+                        <div style={{ paddingTop: 2 }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {error && <p style={{ fontSize: 13, color: "#fca5a5", padding: "10px 14px", background: "var(--red-bg)", borderRadius: "var(--radius)", border: "1px solid #7f1d1d" }}>{error}</p>}
+              </div>
             </div>
-          ) : (
-            <CourtROISelector
-              thumbnailUrl={getThumbnailUrl(id)}
-              onConfirm={handleROIConfirm}
-            />
           )}
+
+          {/* ── PENDING / PROCESSING ── */}
+          {(video.status === "pending" || video.status === "processing") && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 24px", textAlign: "center" }}>
+              <div className="bv-spinner" style={{ width: 80, height: 80, borderWidth: 3, marginBottom: 32 }} />
+              <div style={{ fontFamily: "var(--f-head)", fontSize: 24, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.02em" }}>A analisar o teu vídeo…</div>
+              <div style={{ fontSize: 16, color: "var(--text-muted)", fontWeight: 300, marginBottom: 48, maxWidth: 480 }}>
+                Isto pode demorar alguns minutos. Podes fechar esta página — podes voltar mais tarde para ver os resultados.
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", maxWidth: 400, textAlign: "left" }}>
+                {[
+                  { label: "Upload concluído", done: true },
+                  { label: "ROI confirmado", done: true },
+                  { label: "A detetar jogadores e bola", active: true },
+                  { label: "A gerar heatmaps", waiting: true },
+                  { label: "A gerar relatório", waiting: true },
+                ].map(s => (
+                  <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, fontFamily: "var(--f-head)", fontSize: 14, fontWeight: 500, color: s.done ? "var(--text-muted)" : s.active ? "var(--text)" : "var(--text-dim)", background: s.active ? "var(--surface)" : "transparent" }}>
+                    <div style={{ width: 24, height: 24, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", color: s.done ? "var(--green-l)" : s.active ? "var(--text-muted)" : "var(--surface-3)" }}>
+                      {s.done ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
+                      ) : s.active ? (
+                        <div className="bv-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                      )}
+                    </div>
+                    {s.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── FAILED ── */}
+          {video.status === "failed" && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 24px", textAlign: "center" }}>
+              <div style={{ width: 80, height: 80, borderRadius: "50%", background: "var(--red-bg)", border: "2px solid var(--red)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 28px" }}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+              </div>
+              <div style={{ fontFamily: "var(--f-head)", fontSize: 24, fontWeight: 700, marginBottom: 10 }}>Análise falhou</div>
+              <div style={{ fontSize: 16, color: "var(--text-muted)", fontWeight: 300, maxWidth: 480, marginBottom: 32, lineHeight: 1.6 }}>
+                Ocorreu um erro durante o processamento do vídeo. O problema pode ser a qualidade do vídeo, formato não suportado, ou o vídeo não contém frames suficientes.
+              </div>
+              {video.error && (
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "var(--radius)", padding: "14px 20px", marginBottom: 32, fontFamily: "var(--f-mono)", fontSize: 13, color: "#fca5a5", width: "100%", maxWidth: 480, textAlign: "left" }}>
+                  {video.error}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+                <Link href="/" className="bv-btn bv-btn-surface">← Voltar ao dashboard</Link>
+                <a href="mailto:suporte@btvision.pt" className="bv-btn bv-btn-ghost">Contactar suporte</a>
+              </div>
+            </div>
+          )}
+
+          {/* ── DONE ── */}
+          {video.status === "done" && result && (
+            <>
+              <div style={{ padding: "32px 0 24px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, borderBottom: "1px solid var(--border)", marginBottom: 32 }}>
+                <div>
+                  <div style={{ fontFamily: "var(--f-head)", fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>{video.filename}</div>
+                  <div style={{ fontSize: 14, color: "var(--text-dim)" }}>
+                    Analisado em {new Date(video.created_at).toLocaleDateString("pt-PT")} · {formatDuration(result.duration_s)} de duração · Processado em {result.processing_time_s}s
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <button className="bv-btn bv-btn-ghost bv-btn-sm" title="Exportar PDF (em breve)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                    Exportar PDF
+                  </button>
+                </div>
+              </div>
+
+              {/* STAT CARDS */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 32 }}>
+                <div className="bv-stat-card">
+                  <div className="bv-stat-label">Bola detetada</div>
+                  <div className="bv-stat-value" style={{ color: "var(--green-l)" }}>{result.ball_detection_pct}%</div>
+                  <div className="bv-stat-sub">conf. média {result.avg_ball_conf}</div>
+                </div>
+                <div className="bv-stat-card">
+                  <div className="bv-stat-label">2 Jogadores</div>
+                  <div className="bv-stat-value">{result.player_2_detection_pct}%</div>
+                  <div className="bv-stat-sub">conf. média {result.avg_player_conf}</div>
+                </div>
+                <div className="bv-stat-card">
+                  <div className="bv-stat-label">Frames utilizáveis</div>
+                  <div className="bv-stat-value">{result.usable_frames_pct}%</div>
+                  <div className="bv-stat-sub">bola + 2 jogadores</div>
+                </div>
+                <div className="bv-stat-card">
+                  <div className="bv-stat-label">Duração</div>
+                  <div className="bv-stat-value" style={{ fontSize: 28 }}>{formatDuration(result.duration_s)}</div>
+                  <div className="bv-stat-sub">{result.total_frames} frames · {Math.round(result.fps)}fps</div>
+                </div>
+              </div>
+
+              {/* HEATMAPS */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32 }}>
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+                  <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ fontFamily: "var(--f-head)", fontSize: 14, fontWeight: 600 }}>Heatmap — Bola</div>
+                    <div style={{ display: "flex", gap: 12 }}>
+                      {[["#eab308","Alta densidade"],["#854d0e","Baixa"]].map(([c,l]) => (
+                        <div key={l} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-dim)", fontFamily: "var(--f-head)" }}>
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />{l}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ padding: 16 }}>
+                    <BallHeatmap positions={result.ball_positions} courtRoi={result.court_roi} cameraOrientation={result.camera_orientation} />
+                  </div>
+                </div>
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+                  <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ fontFamily: "var(--f-head)", fontSize: 14, fontWeight: 600 }}>Heatmap — Jogadores</div>
+                    <div style={{ display: "flex", gap: 12 }}>
+                      {[["#3b82f6","J1"],["#f97316","J2"],["#a855f7","J3"],["#22c55e","J4"]].map(([c,l]) => (
+                        <div key={l} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-dim)", fontFamily: "var(--f-head)" }}>
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />{l}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ padding: 16 }}>
+                    <PlayerHeatmap positions={result.player_positions} courtRoi={result.court_roi} cameraOrientation={result.camera_orientation} />
+                  </div>
+                </div>
+              </div>
+
+              {/* REPLAY */}
+              <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+                <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontFamily: "var(--f-head)", fontSize: 14, fontWeight: 600 }}>Replay interativo</div>
+                  <span className="bv-badge bv-badge-done">
+                    <span className="bv-badge-dot" />
+                    Concluído
+                  </span>
+                </div>
+                <CourtReplay videoId={id} result={result} />
+              </div>
+
+              <p style={{ fontSize: 12, color: "var(--text-dim)", textAlign: "right", marginTop: 16 }}>
+                Processado em {result.processing_time_s}s · {result.resolution}
+              </p>
+            </>
+          )}
+
         </div>
-      )}
-
-      {(video.status === "pending" || video.status === "processing") && (
-        <div className="flex flex-col items-center gap-4 py-16 text-gray-500">
-          <div className="w-10 h-10 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-          <p>A analisar o vídeo, por favor aguarde…</p>
-        </div>
-      )}
-
-      {video.status === "failed" && (
-        <div className="bg-red-950 border border-red-800 rounded-xl p-5 text-red-300 text-sm">
-          <strong>Erro:</strong> {video.error}
-        </div>
-      )}
-
-      {video.status === "done" && result && (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <StatCard
-              label="Bola detetada"
-              value={`${result.ball_detection_pct}%`}
-              sub={`conf. média ${result.avg_ball_conf}`}
-            />
-            <StatCard
-              label="2 jogadores"
-              value={`${result.player_2_detection_pct}%`}
-              sub={`conf. média ${result.avg_player_conf}`}
-            />
-            <StatCard
-              label="Frames utilizáveis"
-              value={`${result.usable_frames_pct}%`}
-              sub="bola + 2 jogadores"
-            />
-            <StatCard
-              label="Duração"
-              value={`${result.duration_s}s`}
-              sub={`${result.total_frames} frames · ${Math.round(result.fps)}fps`}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <BallHeatmap positions={result.ball_positions} courtRoi={result.court_roi} cameraOrientation={result.camera_orientation} />
-            <PlayerHeatmap positions={result.player_positions} courtRoi={result.court_roi} cameraOrientation={result.camera_orientation} />
-          </div>
-
-          <div className="border border-gray-800 rounded-xl p-5">
-            <CourtReplay videoId={id} result={result} />
-          </div>
-
-          <p className="text-xs text-gray-600 text-right">
-            Processado em {result.processing_time_s}s · {result.resolution}
-          </p>
-        </>
-      )}
+      </main>
     </div>
   );
 }
