@@ -39,14 +39,11 @@ services:
   db:
     image: postgres:15-alpine
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-rally}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-rallyvision}
+    env_file: .env.prod
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rally} -d ${POSTGRES_DB:-rallyvision}"]
+      test: ["CMD-SHELL", "pg_isready -U rally -d rallyvision"]
       interval: 5s
       timeout: 3s
       retries: 10
