@@ -173,7 +173,7 @@ export default function LandingPage() {
             <a href="#pricing" className="bv-nav-link">Preços</a>
           </div>
           <div className="bv-nav-actions">
-            <Link href="/auth/login" className="bv-btn bv-btn-ghost bv-btn-sm">Entrar</Link>
+            <Link href="/auth/login" className="bv-btn bv-btn-ghost bv-btn-sm bv-hide-mobile">Entrar</Link>
             <Link href="/auth/register" className="bv-btn bv-btn-green bv-btn-sm">Começar grátis</Link>
           </div>
         </div>
@@ -341,7 +341,7 @@ export default function LandingPage() {
 
       {/* CTA BANNER */}
       <div className="bv-container" style={{ marginBottom: 100 }}>
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: 24, padding: "64px 48px", display: "flex", alignItems: "center", gap: 48, position: "relative", overflow: "hidden" }}>
+        <div className="bv-cta-inner" style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: 24, padding: "64px 48px", alignItems: "center", gap: 48, position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 60% 100% at 80% 50%, rgba(22,163,74,0.07) 0%, transparent 60%)", pointerEvents: "none" }} />
           <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: 32, fontWeight: 700, marginBottom: 10 }}>Pronto para analisar a tua próxima partida?</h2>
@@ -353,7 +353,7 @@ export default function LandingPage() {
 
       {/* FOOTER */}
       <footer className="bv-footer">
-        <div className="bv-container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24 }}>
+        <div className="bv-container bv-footer-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24 }}>
           <Link href="/landing" className="bv-nav-logo" style={{ fontSize: 16 }}>
             <div className="bv-nav-logo-dot" />
             BT Vision
