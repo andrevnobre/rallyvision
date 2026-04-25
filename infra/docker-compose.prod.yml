@@ -25,6 +25,7 @@ services:
         condition: service_healthy
     volumes:
       - uploads:/uploads
+      - /opt/rallyvision/models:/ml/spike:ro
     command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=1
 
   frontend:
