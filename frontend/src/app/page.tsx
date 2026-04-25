@@ -1,8 +1,25 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { uploadVideo } from "@/lib/api";
+import { uploadVideo, listVideos, getToken, type VideoStatus } from "@/lib/api";
+
+const STATUS_LABEL: Record<VideoStatus["status"], string> = {
+  pending_roi: "Aguarda ROI",
+  pending: "Na fila",
+  processing: "A processar…",
+  done: "Concluído",
+  failed: "Falhou",
+};
+
+const STATUS_COLOR: Record<VideoStatus["status"], string> = {
+  pending_roi: "text-blue-400",
+  pending: "text-gray-400",
+  processing: "text-yellow-400",
+  done: "text-green-400",
+  failed: "text-red-400",
+};
 
 export default function Home() {
   const router = useRouter();
@@ -10,8 +27,14 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [videos, setVideos] = useState<VideoStatus[]>([]);
 
   const ALLOWED = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
+
+  useEffect(() => {
+    if (!getToken()) { router.push("/auth/login"); return; }
+    listVideos().then(setVideos).catch(() => {});
+  }, [router]);
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -33,40 +56,69 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col items-center gap-8 pt-10">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold mb-2">Analisar vídeo</h1>
-        <p className="text-gray-400">Carregue um vídeo de beach tennis para análise automática</p>
+    <div className="flex flex-col gap-10">
+      {/* upload */}
+      <div className="flex flex-col items-center gap-6">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-2">Analisar vídeo</h1>
+          <p className="text-gray-400">Carregue um vídeo de beach tennis para análise automática</p>
+        </div>
+
+        <div
+          className="w-full max-w-lg border-2 border-dashed border-gray-700 rounded-xl p-12 flex flex-col items-center gap-4 cursor-pointer hover:border-gray-500 transition-colors"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={onDrop}
+          onClick={() => inputRef.current?.click()}
+        >
+          <svg className="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+          {file ? (
+            <span className="text-green-400 font-medium">{file.name}</span>
+          ) : (
+            <span className="text-gray-500 text-sm text-center">Arraste o vídeo ou clique para selecionar<br />MP4, MOV, AVI, MKV · máx 2 GB</span>
+          )}
+          <input ref={inputRef} type="file" accept="video/*" className="hidden"
+            onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
+        </div>
+
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+
+        <button
+          onClick={onSubmit}
+          disabled={!file || uploading}
+          className="px-8 py-3 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg font-semibold transition-colors"
+        >
+          {uploading ? "A enviar…" : "Analisar"}
+        </button>
       </div>
 
-      <div
-        className="w-full max-w-lg border-2 border-dashed border-gray-700 rounded-xl p-12 flex flex-col items-center gap-4 cursor-pointer hover:border-gray-500 transition-colors"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={onDrop}
-        onClick={() => inputRef.current?.click()}
-      >
-        <svg className="w-12 h-12 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-        </svg>
-        {file ? (
-          <span className="text-green-400 font-medium">{file.name}</span>
-        ) : (
-          <span className="text-gray-500 text-sm">Arraste o vídeo ou clique para selecionar<br />MP4, MOV, AVI, MKV · máx 2 GB</span>
-        )}
-        <input ref={inputRef} type="file" accept="video/*" className="hidden"
-          onChange={(e) => e.target.files?.[0] && setFile(e.target.files[0])} />
-      </div>
-
-      {error && <p className="text-red-400 text-sm">{error}</p>}
-
-      <button
-        onClick={onSubmit}
-        disabled={!file || uploading}
-        className="px-8 py-3 bg-green-600 hover:bg-green-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg font-semibold transition-colors"
-      >
-        {uploading ? "A enviar…" : "Analisar"}
-      </button>
+      {/* lista de vídeos */}
+      {videos.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Os meus vídeos</h2>
+          <div className="flex flex-col gap-2">
+            {videos.map((v) => (
+              <Link
+                key={v.id}
+                href={`/videos/${v.id}`}
+                className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 hover:border-gray-600 transition-colors"
+              >
+                <div>
+                  <p className="font-medium truncate max-w-xs">{v.filename}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {new Date(v.created_at).toLocaleString("pt-PT")}
+                  </p>
+                </div>
+                <span className={`text-xs font-medium ${STATUS_COLOR[v.status]}`}>
+                  {STATUS_LABEL[v.status]}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
