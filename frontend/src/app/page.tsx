@@ -163,7 +163,7 @@ export default function Home() {
               marginBottom: 40,
             }}
           >
-            <input ref={inputRef} type="file" accept="video/*" style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%" }} onChange={onFileChange} />
+            <input ref={inputRef} type="file" accept="video/*" style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%" }} onChange={onFileChange} onClick={e => e.stopPropagation()} />
 
             <div style={{ width: 56, height: 56, borderRadius: 14, background: dragOver || file ? "var(--green-bg)" : "var(--surface-2)", border: `1px solid ${dragOver || file ? "var(--green-dim)" : "var(--border-2)"}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", transition: "all 0.2s" }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={dragOver || file ? "var(--green-l)" : "var(--text-dim)"} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ transition: "all 0.2s" }}>
