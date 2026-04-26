@@ -134,11 +134,11 @@ def upload_thumbnail(video_bytes: bytes, video_storage_key: str) -> None:
     """
     Extrai o primeiro frame do vídeo e guarda como thumbnail JPEG.
     Tentativa 1: cv2 nos primeiros bytes (rápido, funciona para MP4 faststart).
-    Tentativa 2: ffmpeg via presigned URL (funciona para MP4 não-faststart —
-                 o ffmpeg faz range requests e encontra o moov atom no fim).
+    Tentativa 2: PyAV via presigned URL (funciona para MP4 não-faststart —
+                 o PyAV/FFmpeg usa range requests e encontra o moov atom no fim).
     """
-    import subprocess
     import cv2
+    import av
 
     jpeg: bytes | None = None
 
@@ -157,23 +157,29 @@ def upload_thumbnail(video_bytes: bytes, video_storage_key: str) -> None:
     finally:
         tmp_path.unlink(missing_ok=True)
 
-    # Tentativa 2: ffmpeg com presigned URL (MP4 não-faststart — moov no fim)
+    # Tentativa 2: PyAV com presigned URL (MP4 não-faststart — moov no fim)
     if jpeg is None and _use_s3():
         url = get_presigned_url(video_storage_key, expires=300)
         if url:
-            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as out:
-                out_path = Path(out.name)
             try:
-                result = subprocess.run(
-                    ["ffmpeg", "-i", url, "-vframes", "1", "-q:v", "2", str(out_path), "-y"],
-                    capture_output=True, timeout=60,
-                )
-                if result.returncode == 0 and out_path.stat().st_size > 0:
-                    jpeg = out_path.read_bytes()
+                with av.open(url) as container:
+                    video_stream = next(
+                        (s for s in container.streams if s.type == "video"), None
+                    )
+                    if video_stream is not None:
+                        for packet in container.demux(video_stream):
+                            for avframe in packet.decode():
+                                img = avframe.to_ndarray(format="bgr24")
+                                import cv2 as _cv2
+                                _, buf = _cv2.imencode(
+                                    ".jpg", img, [_cv2.IMWRITE_JPEG_QUALITY, 85]
+                                )
+                                jpeg = buf.tobytes()
+                                break
+                            if jpeg is not None:
+                                break
             except Exception:
                 pass
-            finally:
-                out_path.unlink(missing_ok=True)
 
     if jpeg is None:
         return
