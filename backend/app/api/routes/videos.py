@@ -104,9 +104,13 @@ def start_processing(
 
 
 def _dispatch_gpu(video, body) -> None:
-    """Send SQS message and launch EC2 spot instance."""
+    """Send SQS message and launch EC2 spot instance (falls back to on-demand if quota exceeded)."""
+    import logging
     import boto3 as boto3_lib
+    from botocore.exceptions import ClientError
     from app.config import settings
+
+    _log = logging.getLogger(__name__)
 
     msg = {
         "video_id": video.id,
@@ -122,25 +126,33 @@ def _dispatch_gpu(video, body) -> None:
     sqs.send_message(QueueUrl=settings.sqs_url, MessageBody=json.dumps(msg))
 
     ec2 = boto3_lib.client("ec2", region_name=settings.aws_region)
-    ec2.run_instances(
-        LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Latest"},
-        MinCount=1,
-        MaxCount=1,
-        InstanceMarketOptions={
-            "MarketType": "spot",
-            "SpotOptions": {
-                "SpotInstanceType": "one-time",
-                "InstanceInterruptionBehavior": "terminate",
+    tags = [{"ResourceType": "instance", "Tags": [
+        {"Key": "Name", "Value": "rallyvision-gpu-worker"},
+        {"Key": "Purpose", "Value": "rallyvision-gpu-worker"},
+    ]}]
+
+    try:
+        ec2.run_instances(
+            LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Latest"},
+            MinCount=1, MaxCount=1,
+            InstanceMarketOptions={
+                "MarketType": "spot",
+                "SpotOptions": {"SpotInstanceType": "one-time", "InstanceInterruptionBehavior": "terminate"},
             },
-        },
-        TagSpecifications=[{
-            "ResourceType": "instance",
-            "Tags": [
-                {"Key": "Name", "Value": "rallyvision-gpu-worker"},
-                {"Key": "Purpose", "Value": "rallyvision-gpu-worker"},
-            ],
-        }],
-    )
+            TagSpecifications=tags,
+        )
+        _log.info(f"[{video.id}] EC2 spot g4dn.xlarge lançada")
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("MaxSpotInstanceCountExceeded", "InsufficientInstanceCapacity"):
+            _log.warning(f"[{video.id}] Spot indisponível ({e.response['Error']['Code']}), a usar on-demand")
+            ec2.run_instances(
+                LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Latest"},
+                MinCount=1, MaxCount=1,
+                TagSpecifications=tags,
+            )
+            _log.info(f"[{video.id}] EC2 on-demand g4dn.xlarge lançada")
+        else:
+            raise
 
 
 @router.get("/{video_id}/stream")
