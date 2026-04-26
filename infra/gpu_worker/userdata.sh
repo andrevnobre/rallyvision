@@ -16,7 +16,14 @@ WORKER_DIR="/opt/worker"
 
 mkdir -p "$MODELS_DIR" "$WORKER_DIR"
 
-# Install extra deps not on the AMI
+# Deep Learning AMI (AL2023) uses conda — activate pytorch env
+export PATH="/opt/conda/bin:$PATH"
+source /opt/conda/etc/profile.d/conda.sh
+conda activate pytorch
+echo "Python: $(which python) — $(python --version)"
+echo "CUDA available: $(python -c 'import torch; print(torch.cuda.is_available())')"
+
+# Install extra deps into the activated env
 echo "Installing Python deps..."
 pip install -q --upgrade ultralytics opencv-python-headless httpx requests boto3
 
