@@ -3,12 +3,25 @@ import logging
 import tempfile
 from pathlib import Path
 
+import redis as redis_lib
+
+from app.config import settings
 from app.database import SessionLocal
 from app.models.video import Video
 from app.services.storage import download_video
 from app.worker.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+
+_redis = redis_lib.from_url(settings.redis_url, decode_responses=True)
+_PROGRESS_TTL = 7200  # 2h
+
+
+def _set_progress(video_id: str, pct: int) -> None:
+    try:
+        _redis.set(f"btvision:progress:{video_id}", pct, ex=_PROGRESS_TTL)
+    except Exception:
+        pass  # não crítico
 
 
 def _set_status(video_id: str, status: str, result: dict | None = None, error: str | None = None):
@@ -50,10 +63,12 @@ def process_video(self, video_id: str, storage_key: str, camera_orientation: str
 
         def on_progress(pct: int):
             self.update_state(state="PROGRESS", meta={"progress": pct})
+            _set_progress(video_id, pct)
 
         result = run_pipeline(tmp_path, court_roi=court_roi, camera_orientation=camera_orientation, progress_cb=on_progress)
         tmp_path.unlink(missing_ok=True)
 
+        _set_progress(video_id, 100)
         _set_status(video_id, "done", result=result)
         logger.info(
             f"[{video_id}] Concluído — bola {result['ball_detection_pct']}% "

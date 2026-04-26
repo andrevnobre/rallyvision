@@ -6,6 +6,7 @@ from app.database import Base, engine
 from app.models import User, Video  # noqa: F401 — garante que create_all vê todos os modelos
 from app.api.routes import videos
 from app.api.routes.auth import router as auth_router
+from app.api.routes.internal import router as internal_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -25,6 +26,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(videos.router)
+app.include_router(internal_router)
 
 
 @app.get("/health")

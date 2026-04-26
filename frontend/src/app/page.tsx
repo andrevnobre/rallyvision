@@ -54,25 +54,22 @@ export default function Home() {
     if (!file) return;
     setUploading(true);
     setUploadProgress(0);
-    setUploadLabel(`A carregar "${file.name}" — 0%`);
+    setUploadLabel(`A enviar "${file.name}" — 0%`);
     setError(null);
 
-    // Simulate progress while real upload runs
-    let sim = 0;
-    const iv = setInterval(() => {
-      sim = Math.min(sim + Math.random() * 8 + 2, 90);
-      setUploadProgress(sim);
-      setUploadLabel(`A carregar "${file.name}" — ${Math.round(sim)}%`);
-    }, 200);
-
     try {
-      const video = await uploadVideo(file);
-      clearInterval(iv);
+      const video = await uploadVideo(file, (pct) => {
+        setUploadProgress(pct);
+        setUploadLabel(
+          pct < 100
+            ? `A enviar "${file.name}" — ${pct}%`
+            : `A guardar no servidor…`,
+        );
+      });
       setUploadProgress(100);
       setUploadLabel("Upload concluído!");
       setTimeout(() => router.push(`/videos/${video.id}`), 600);
     } catch (e) {
-      clearInterval(iv);
       setError(String(e));
       setUploading(false);
       setUploadProgress(0);

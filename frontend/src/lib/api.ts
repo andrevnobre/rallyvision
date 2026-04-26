@@ -75,6 +75,14 @@ export interface VideoStatus {
   result: string | null;
 }
 
+export interface Rally {
+  rally_id: number;
+  start_frame: number;
+  end_frame: number;
+  duration_s: number;
+  ball_detections: number;
+}
+
 export interface VideoResult {
   fps: number;
   total_frames: number;
@@ -89,6 +97,9 @@ export interface VideoResult {
   avg_ball_conf: number;
   avg_player_conf: number;
   processing_time_s: number;
+  rally_count?: number;
+  avg_rally_duration_s?: number;
+  rallies?: Rally[];
   ball_positions: {
     frame: number; cx: number; cy: number; conf: number;
     nx?: number; ny?: number;
@@ -103,14 +114,45 @@ export async function listVideos(): Promise<VideoStatus[]> {
   return res.json();
 }
 
-export async function uploadVideo(file: File): Promise<VideoStatus> {
-  const form = new FormData();
-  form.append("file", file);
-  const res = await apiFetch(`${API}/videos/upload`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: form,
+export async function uploadVideo(
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<VideoStatus> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const form = new FormData();
+    form.append("file", file);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 201) {
+        try { resolve(JSON.parse(xhr.responseText)); }
+        catch { reject(new Error("Resposta inválida do servidor")); }
+      } else if (xhr.status === 401) {
+        removeToken();
+        window.location.href = "/auth/login";
+        reject(new Error("Não autenticado"));
+      } else {
+        reject(new Error(xhr.responseText || `Erro ${xhr.status}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Erro de rede durante o upload"));
+
+    xhr.open("POST", `${API}/videos/upload`);
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.send(form);
   });
+}
+
+export async function getVideoProgress(id: string): Promise<{ progress: number; status: string }> {
+  const res = await apiFetch(`${API}/videos/${id}/progress`, { headers: authHeaders() });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getVideo, getThumbnailUrl, processVideo, removeToken, type VideoStatus, type VideoResult } from "@/lib/api";
+import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, removeToken, type VideoStatus, type VideoResult } from "@/lib/api";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtROISelector } from "@/components/CourtROISelector";
 import { CourtReplay } from "@/components/CourtReplay";
@@ -29,23 +29,45 @@ export default function VideoPage() {
   const [video, setVideo] = useState<VideoStatus | null>(null);
   const [result, setResult] = useState<VideoResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [processingPct, setProcessingPct] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   function logout() { removeToken(); router.push("/auth/login"); }
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    async function poll() {
+    let statusTimer: ReturnType<typeof setTimeout>;
+    let progressTimer: ReturnType<typeof setInterval>;
+
+    async function pollStatus() {
       const v = await getVideo(id);
       setVideo(v);
       if (v.status === "done" && v.result) {
+        clearInterval(progressTimer);
+        setProcessingPct(100);
         setResult(JSON.parse(v.result));
       } else if (v.status === "pending" || v.status === "processing") {
-        timer = setTimeout(poll, 4000);
+        statusTimer = setTimeout(pollStatus, 4000);
+      } else {
+        clearInterval(progressTimer);
       }
     }
-    poll();
-    return () => clearTimeout(timer);
+
+    async function pollProgress() {
+      try {
+        const { progress } = await getVideoProgress(id);
+        setProcessingPct(progress);
+      } catch {
+        // silencia erros de progresso
+      }
+    }
+
+    pollStatus();
+    progressTimer = setInterval(pollProgress, 2000);
+
+    return () => {
+      clearTimeout(statusTimer);
+      clearInterval(progressTimer);
+    };
   }, [id]);
 
   async function handleROIConfirm(points: [number, number][], orientation: "lateral" | "fundo") {
@@ -167,7 +189,20 @@ export default function VideoPage() {
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                       )}
                     </div>
-                    {s.label}
+                    <div style={{ flex: 1 }}>
+                      {s.label}
+                      {s.active && processingPct > 0 && (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-dim)", marginBottom: 4 }}>
+                            <span>frames analisados</span>
+                            <span>{processingPct}%</span>
+                          </div>
+                          <div style={{ height: 3, background: "var(--surface-2)", borderRadius: 2, overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${processingPct}%`, background: "var(--green)", borderRadius: 2, transition: "width 0.4s ease" }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -214,8 +249,8 @@ export default function VideoPage() {
                 </div>
               </div>
 
-              {/* STAT CARDS */}
-              <div className="bv-grid-4" style={{ gap: 16, marginBottom: 32 }}>
+              {/* STAT CARDS — linha 1 */}
+              <div className="bv-grid-4" style={{ gap: 16, marginBottom: 16 }}>
                 <div className="bv-stat-card">
                   <div className="bv-stat-label">Bola detetada</div>
                   <div className="bv-stat-value" style={{ color: "var(--green-l)" }}>{result.ball_detection_pct}%</div>
@@ -237,6 +272,26 @@ export default function VideoPage() {
                   <div className="bv-stat-sub">{result.total_frames} frames · {Math.round(result.fps)}fps</div>
                 </div>
               </div>
+
+              {/* STAT CARDS — linha 2: rallies (só se o resultado tiver estes dados) */}
+              {result.rally_count !== undefined && (
+                <div className="bv-grid-4" style={{ gap: 16, marginBottom: 32 }}>
+                  <div className="bv-stat-card">
+                    <div className="bv-stat-label">Rallies detetados</div>
+                    <div className="bv-stat-value" style={{ color: "var(--green-l)" }}>{result.rally_count}</div>
+                    <div className="bv-stat-sub">segmentos com bola contínua</div>
+                  </div>
+                  <div className="bv-stat-card">
+                    <div className="bv-stat-label">Duração média rally</div>
+                    <div className="bv-stat-value" style={{ fontSize: 28 }}>{result.avg_rally_duration_s}s</div>
+                    <div className="bv-stat-sub">
+                      {result.rallies && result.rallies.length > 0
+                        ? `${Math.min(...result.rallies.map(r => r.duration_s))}s – ${Math.max(...result.rallies.map(r => r.duration_s))}s`
+                        : "—"}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* HEATMAPS */}
               <div className="bv-grid-2" style={{ gap: 24, marginBottom: 32 }}>

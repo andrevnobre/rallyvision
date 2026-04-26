@@ -161,11 +161,26 @@ export function CourtReplay({ videoId, result }: { videoId: string; result: Vide
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     const W = canvas.width, H = canvas.height;
+    const RALLY_H = Math.round(H * 0.4);  // 40% superior = rallies
+    const BALL_Y = RALLY_H + 2;           // 60% inferior = bola
+
     ctx.fillStyle = "#1f2937"; ctx.fillRect(0, 0, W, H);
+
+    // bandas de rally (verde, metade superior)
+    (result.rallies ?? []).forEach((r) => {
+      const x1 = Math.round((r.start_frame / result.total_frames) * W);
+      const x2 = Math.round((r.end_frame / result.total_frames) * W);
+      ctx.fillStyle = "rgba(34, 197, 94, 0.4)";
+      ctx.fillRect(x1, 0, Math.max(x2 - x1, 2), RALLY_H);
+    });
+
+    // bola (amarelo, metade inferior)
     result.ball_positions.forEach(({ frame: f }) => {
       const x = Math.round((f / result.total_frames) * W);
-      ctx.fillStyle = "#facc15"; ctx.fillRect(x, 0, 2, H);
+      ctx.fillStyle = "#facc15"; ctx.fillRect(x, BALL_Y, 2, H - BALL_Y);
     });
+
+    // cursor
     const cx = Math.round((frame / result.total_frames) * W);
     ctx.fillStyle = "white"; ctx.fillRect(cx - 1, 0, 2, H);
   }, [frame, result]);
@@ -221,7 +236,7 @@ export function CourtReplay({ videoId, result }: { videoId: string; result: Vide
       <canvas
         ref={timelineRef}
         width={640}
-        height={14}
+        height={24}
         className="w-full rounded cursor-pointer"
         onClick={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
@@ -230,9 +245,45 @@ export function CourtReplay({ videoId, result }: { videoId: string; result: Vide
       />
       <div className="flex justify-between text-xs text-gray-600">
         <span>0s</span>
-        <span>amarelo = bola detetada · clica para saltar</span>
+        <span className="flex gap-3">
+          <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-green-600/60" />rally</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-yellow-400" />bola</span>
+          <span>· clica para saltar</span>
+        </span>
         <span>{result.duration_s}s</span>
       </div>
+
+      {/* chips de rally — clicar salta para o início do rally */}
+      {result.rallies && result.rallies.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {result.rallies.map((r) => {
+            const active = frame >= r.start_frame && frame <= r.end_frame;
+            return (
+              <button
+                key={r.rally_id}
+                onClick={() => {
+                  setFrame(r.start_frame);
+                  const video = videoRef.current;
+                  if (video && videoReady) video.currentTime = r.start_frame / result.fps;
+                }}
+                style={{
+                  padding: "3px 10px",
+                  fontSize: 12,
+                  fontFamily: "var(--f-head)",
+                  borderRadius: 999,
+                  border: `1px solid ${active ? "rgb(34,197,94)" : "var(--border-2)"}`,
+                  background: active ? "rgba(34,197,94,0.15)" : "var(--surface-2)",
+                  color: active ? "rgb(134,239,172)" : "var(--text-dim)",
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                Rally {r.rally_id} · {r.duration_s}s
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* slider */}
       <input

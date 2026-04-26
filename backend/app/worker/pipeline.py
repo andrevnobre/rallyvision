@@ -15,15 +15,20 @@ logger = logging.getLogger(__name__)
 
 BALL_CONF = 0.3
 PLAYER_CONF = 0.3
-SAMPLE_RATE = 2  # processa 1 em cada 2 frames (30fps efetivo em vídeo 60fps)
-LOG_INTERVAL = 50  # linhas de log a cada N frames processados
-PLAYER_PROXY_PX = 220  # distância máxima (px) para usar ny do jogador como proxy de profundidade da bola
-MAX_BALL_JUMP = 0.30        # dist. máx. normalizada entre frames para aceitar deteção (Kalman)
-KALMAN_LOST_FRAMES = 5      # frames consecutivos rejeitados/ausentes antes de reset do filtro
+TARGET_FPS = 15      # cadência de processamento alvo; sample_rate calculado por vídeo
+PROC_WIDTH = 1280    # largura de inferência YOLO (YOLO redimensiona internamente e devolve coords originais)
+LOG_INTERVAL = 50
+PLAYER_PROXY_PX = 220
+MAX_BALL_JUMP = 0.30
+KALMAN_LOST_FRAMES = 5
 
 MODELS_DIR = Path("/ml/spike")
 BALL_WEIGHTS = MODELS_DIR / "ball_yolo.pt"
 PLAYER_WEIGHTS = "yolov8s.pt"
+
+RALLY_MAX_GAP_S = 1.5       # gap > 1.5s sem bola = fim de rally
+RALLY_MIN_S = 1.0            # rally deve ter pelo menos 1s
+RALLY_MIN_DETECTIONS = 4     # mínimo de deteções de bola para ser rally
 
 
 def _detect_orientation(court_roi: list[list[float]]) -> str:
@@ -112,6 +117,50 @@ class _BallKalman:
         return float(s[0, 0]), float(s[1, 0])
 
 
+def _make_rally(rally_id: int, positions: list[dict], fps: float) -> dict:
+    start = positions[0]["frame"]
+    end = positions[-1]["frame"]
+    return {
+        "rally_id": rally_id,
+        "start_frame": start,
+        "end_frame": end,
+        "duration_s": round((end - start) / fps, 2),
+        "ball_detections": len(positions),
+    }
+
+
+def detect_rallies(ball_positions: list[dict], fps: float) -> list[dict]:
+    """
+    Agrupa deteções de bola em rallies usando segmentação por gap temporal.
+    Um gap > RALLY_MAX_GAP_S sem bola marca o fim de um rally.
+    """
+    if not ball_positions or fps <= 0:
+        return []
+
+    max_gap = fps * RALLY_MAX_GAP_S
+    min_frames = fps * RALLY_MIN_S
+
+    sorted_pos = sorted(ball_positions, key=lambda p: p["frame"])
+    segments: list[list[dict]] = []
+    current = [sorted_pos[0]]
+
+    for pos in sorted_pos[1:]:
+        if pos["frame"] - current[-1]["frame"] <= max_gap:
+            current.append(pos)
+        else:
+            segments.append(current)
+            current = [pos]
+    segments.append(current)
+
+    rallies = []
+    for seg in segments:
+        span = seg[-1]["frame"] - seg[0]["frame"]
+        if span >= min_frames and len(seg) >= RALLY_MIN_DETECTIONS:
+            rallies.append(_make_rally(len(rallies) + 1, seg, fps))
+
+    return rallies
+
+
 def run_pipeline(
     video_path: Path,
     court_roi: list[list[float]] | None = None,
@@ -138,10 +187,17 @@ def run_pipeline(
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     duration_s = round(total_frames / fps, 1) if fps else 0
 
+    # sample_rate adaptativo: processar a TARGET_FPS efetivos independentemente do fps original
+    # mín. 1 (processa tudo, para vídeos com fps <= TARGET_FPS)
+    sample_rate = max(1, round(fps / TARGET_FPS)) if fps else 1
+    effective_fps = round(fps / sample_rate, 1) if fps else TARGET_FPS
+
     logger.info(
         f"Vídeo: {width}x{height} @ {fps:.1f}fps | "
         f"{total_frames} frames ({duration_s}s) | "
-        f"sample_rate=1/{SAMPLE_RATE} → ~{total_frames // SAMPLE_RATE} frames a processar"
+        f"sample_rate=1/{sample_rate} → {effective_fps}fps efetivos "
+        f"(~{total_frames // sample_rate} frames a processar) | "
+        f"imgsz={PROC_WIDTH}"
     )
 
     # --- orientação da câmera e ROI / homografia ---
@@ -196,11 +252,11 @@ def run_pipeline(
 
         frame_idx += 1
 
-        if frame_idx % SAMPLE_RATE != 0:
+        if frame_idx % sample_rate != 0:
             continue
 
         # --- bola (sem filtro de ROI — a bola voa acima da quadra) ---
-        ball_results = ball_model(frame, conf=BALL_CONF, verbose=False)[0]
+        ball_results = ball_model(frame, conf=BALL_CONF, verbose=False, imgsz=PROC_WIDTH)[0]
         balls = []
         for box in ball_results.boxes:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
@@ -210,7 +266,7 @@ def run_pipeline(
         # --- jogadores: filtrar por ROI expandida para incluir zona de saque ---
         player_results = player_model.track(
             frame, persist=True, tracker="bytetrack.yaml",
-            classes=[0], conf=PLAYER_CONF, verbose=False,
+            classes=[0], conf=PLAYER_CONF, verbose=False, imgsz=PROC_WIDTH,
         )[0]
         players = []
         if player_results.boxes.id is not None:
@@ -298,7 +354,7 @@ def run_pipeline(
         if pf == 1 or pf - last_log_pf >= LOG_INTERVAL:
             elapsed = time.time() - start
             fps_proc = pf / elapsed if elapsed > 0 else 0
-            eta_s = int((total_frames // SAMPLE_RATE - pf) / fps_proc) if fps_proc > 0 else 0
+            eta_s = int((total_frames // sample_rate - pf) / fps_proc) if fps_proc > 0 else 0
             ball_pct = stats["frames_with_ball"] / pf * 100
             p2_pct = stats["frames_with_2_players"] / pf * 100
             avg_ball_conf = (
@@ -333,6 +389,11 @@ def run_pipeline(
         f"jogadores rastreados: {list(stats['player_positions'].keys())}"
     )
 
+    rallies = detect_rallies(stats["ball_positions"], fps)
+    avg_rally_s = round(sum(r["duration_s"] for r in rallies) / len(rallies), 2) if rallies else 0
+
+    logger.info(f"{len(rallies)} rallies detetados | duração média {avg_rally_s}s")
+
     return {
         "fps": stats["fps"],
         "total_frames": stats["total_frames"],
@@ -347,6 +408,9 @@ def run_pipeline(
         "avg_ball_conf": avg_ball,
         "avg_player_conf": avg_player,
         "processing_time_s": round(elapsed, 1),
+        "rally_count": len(rallies),
+        "avg_rally_duration_s": avg_rally_s,
+        "rallies": rallies,
         "ball_positions": stats["ball_positions"],
         "player_positions": stats["player_positions"],
     }
