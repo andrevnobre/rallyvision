@@ -35,8 +35,8 @@ from ultralytics import YOLO
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--data", required=True, help="Caminho para data.yaml do dataset Roboflow")
-    p.add_argument("--base-model", default="yolov8s.pt",
-                   help="Pesos base: yolov8n.pt (rápido) | yolov8s.pt (padrão) | yolov8m.pt (preciso)")
+    p.add_argument("--base-model", default="ball_yolo.pt",
+                   help="Pesos base: ball_yolo.pt (continuar treino) | yolov8s.pt (recomeçar)")
     p.add_argument("--epochs", type=int, default=100)
     p.add_argument("--batch", type=int, default=16, help="Reduzir para 8 se der OOM na GPU")
     p.add_argument("--imgsz", type=int, default=640)
