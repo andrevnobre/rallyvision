@@ -176,11 +176,17 @@ export async function processVideo(
   id: string,
   courtRoi: [number, number][],
   cameraOrientation?: "lateral" | "fundo",
+  netPoints?: [number, number][] | null,
 ): Promise<void> {
+  const body: Record<string, unknown> = {
+    court_roi: courtRoi,
+    camera_orientation: cameraOrientation ?? null,
+  };
+  if (netPoints && netPoints.length === 2) body.net_points = netPoints;
   const res = await apiFetch(`${API}/videos/${id}/process`, {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ court_roi: courtRoi, camera_orientation: cameraOrientation ?? null }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await res.text());
 }

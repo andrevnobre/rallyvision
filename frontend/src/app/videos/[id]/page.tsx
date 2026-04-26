@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, removeToken, type VideoStatus, type VideoResult } from "@/lib/api";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
-import { CourtROISelector } from "@/components/CourtROISelector";
+import { CourtROISelector, type ROIResult } from "@/components/CourtROISelector";
 import { CourtReplay } from "@/components/CourtReplay";
 
 const STATUS_CFG: Record<VideoStatus["status"], { label: string; cls: string }> = {
@@ -70,11 +70,11 @@ export default function VideoPage() {
     };
   }, [id]);
 
-  async function handleROIConfirm(points: [number, number][], orientation: "lateral" | "fundo") {
+  async function handleROIConfirm({ points, orientation, netPoints }: ROIResult) {
     setSubmitting(true);
     setError(null);
     try {
-      await processVideo(id, points, orientation);
+      await processVideo(id, points, orientation, netPoints);
       const v = await getVideo(id);
       setVideo(v);
       const interval = setInterval(async () => {

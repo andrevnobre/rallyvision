@@ -92,6 +92,7 @@ def start_processing(
         raise HTTPException(409, f"Estado inválido para iniciar processamento: {video.status}")
 
     video.court_roi = json.dumps(body.court_roi)
+    video.net_points = json.dumps(body.net_points) if body.net_points else None
     video.status = "pending"
     db.commit()
 
@@ -117,6 +118,7 @@ def _dispatch_gpu(video, body) -> None:
         "storage_key": video.storage_key,
         "court_roi": body.court_roi,
         "camera_orientation": body.camera_orientation,
+        "net_points": body.net_points,
         "api_url": settings.internal_api_url,
         "api_key": settings.worker_api_key,
         "bucket": settings.s3_bucket,

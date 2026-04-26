@@ -24,14 +24,27 @@ class VideoStatusResponse(BaseModel):
 
 
 class ProcessRequest(BaseModel):
-    court_roi: list[list[float]]  # [[nx, ny], ...] normalizados em [0, 1]
+    court_roi: list[list[float]]           # [[nx, ny], ...] normalizados em [0, 1]
     camera_orientation: str | None = None  # "lateral" | "fundo" | None (auto-detecta)
+    net_points: list[list[float]] | None = None  # [[nx, ny], [nx, ny]] extremos da rede
 
     @field_validator("court_roi")
     @classmethod
     def validate_roi(cls, v: list[list[float]]) -> list[list[float]]:
         if len(v) != 4:
             raise ValueError("court_roi deve ter exactamente 4 pontos")
+        for pt in v:
+            if len(pt) != 2:
+                raise ValueError("Cada ponto deve ser [x, y]")
+        return v
+
+    @field_validator("net_points")
+    @classmethod
+    def validate_net(cls, v: list[list[float]] | None) -> list[list[float]] | None:
+        if v is None:
+            return v
+        if len(v) != 2:
+            raise ValueError("net_points deve ter exactamente 2 pontos")
         for pt in v:
             if len(pt) != 2:
                 raise ValueError("Cada ponto deve ser [x, y]")

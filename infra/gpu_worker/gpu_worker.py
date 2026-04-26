@@ -106,6 +106,7 @@ def process_job(msg: dict, receipt_handle: str) -> None:
     storage_key = msg["storage_key"]
     court_roi = msg.get("court_roi")
     camera_orientation = msg.get("camera_orientation")
+    net_points = msg.get("net_points")
     api_url = msg["api_url"].rstrip("/")
     api_key = msg["api_key"]
     bucket = msg["bucket"]
@@ -132,6 +133,7 @@ def process_job(msg: dict, receipt_handle: str) -> None:
             tmp_path,
             court_roi=court_roi,
             camera_orientation=camera_orientation,
+            net_points=net_points,
             progress_cb=on_progress,
         )
 

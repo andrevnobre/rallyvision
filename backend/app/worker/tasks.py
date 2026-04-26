@@ -65,7 +65,8 @@ def process_video(self, video_id: str, storage_key: str, camera_orientation: str
             self.update_state(state="PROGRESS", meta={"progress": pct})
             _set_progress(video_id, pct)
 
-        result = run_pipeline(tmp_path, court_roi=court_roi, camera_orientation=camera_orientation, progress_cb=on_progress)
+        net_points = json.loads(video.net_points) if video and video.net_points else None
+        result = run_pipeline(tmp_path, court_roi=court_roi, camera_orientation=camera_orientation, net_points=net_points, progress_cb=on_progress)
         tmp_path.unlink(missing_ok=True)
 
         _set_progress(video_id, 100)

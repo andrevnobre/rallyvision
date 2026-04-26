@@ -19,7 +19,8 @@ class Video(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
     )
-    court_roi: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON [[nx,ny],...]
+    court_roi: Mapped[str | None] = mapped_column(Text, nullable=True)   # JSON [[nx,ny],...]
+    net_points: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON [[nx,ny],[nx,ny]]
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     result: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
     owner: Mapped["User | None"] = relationship("User", back_populates="videos")  # type: ignore[name-defined]

@@ -39,23 +39,42 @@ def _detect_orientation(court_roi: list[list[float]]) -> str:
 
 
 def _sort_corners(pts: np.ndarray) -> np.ndarray:
-    """
-    Ordena 4 cantos em: topo-esq, topo-dir, base-dir, base-esq.
-    Robusto à ordem de clique do utilizador.
-    """
-    by_y = pts[np.argsort(pts[:, 1])]          # ordena por y (topo = y menor)
-    top = by_y[:2][np.argsort(by_y[:2, 0])]    # par de cima: esq → dir
-    bot = by_y[2:][np.argsort(by_y[2:, 0])]    # par de baixo: esq → dir
+    """Ordena 4 cantos em TL, TR, BR, BL pela geometria da imagem."""
+    by_y = pts[np.argsort(pts[:, 1])]
+    top = by_y[:2][np.argsort(by_y[:2, 0])]
+    bot = by_y[2:][np.argsort(by_y[2:, 0])]
     return np.array([top[0], top[1], bot[1], bot[0]])  # TL, TR, BR, BL
 
 
 def _build_homography(
-    court_roi: list[list[float]], width: int, height: int
+    court_roi: list[list[float]],
+    width: int,
+    height: int,
+    net_points: list[list[float]] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Constrói a homografia pixel→coordenadas normalizadas [0,1].
+    Coordenadas: TL=(0,0), TR=(1,0), BR=(1,1), BL=(0,1) → rede em ny=0.5.
+
+    Se net_points fornecidos (2 pontos nos extremos da rede), usa homografia
+    sobre-determinada com 6 pontos (RANSAC) para maior precisão.
+    """
     raw = np.float32([[nx * width, ny * height] for nx, ny in court_roi])
-    src = _sort_corners(raw)                   # garante ordem TL→TR→BR→BL
+    src = _sort_corners(raw)                   # TL, TR, BR, BL
     dst = np.float32([[0, 0], [1, 0], [1, 1], [0, 1]])
-    H, _ = cv2.findHomography(src, dst)
+
+    if net_points and len(net_points) == 2:
+        # Extremos da rede: esq=(0, 0.5) e dir=(1, 0.5) em coords normalizadas
+        net_src = np.float32([[nx * width, ny * height] for nx, ny in net_points])
+        net_dst = np.float32([[0, 0.5], [1, 0.5]])
+        src_all = np.vstack([src, net_src])
+        dst_all = np.vstack([dst, net_dst])
+        H, _ = cv2.findHomography(src_all, dst_all, cv2.RANSAC, 5.0)
+        if H is None:  # RANSAC falhou — fallback para 4 pontos
+            H, _ = cv2.findHomography(src, dst)
+    else:
+        H, _ = cv2.findHomography(src, dst)
+
     return src.astype(np.int32), H
 
 
@@ -165,6 +184,7 @@ def run_pipeline(
     video_path: Path,
     court_roi: list[list[float]] | None = None,
     camera_orientation: str | None = None,
+    net_points: list[list[float]] | None = None,
     progress_cb: Callable[[int], None] | None = None,
 ) -> dict:
     from ultralytics import YOLO
@@ -208,7 +228,7 @@ def run_pipeline(
         logger.info(f"Orientação da câmera: {camera_orientation} (auto-detetada)")
 
     if court_roi:
-        roi_pts, H = _build_homography(court_roi, width, height)
+        roi_pts, H = _build_homography(court_roi, width, height, net_points)
         roi_px = [(int(nx * width), int(ny * height)) for nx, ny in court_roi]
         # margem para zona de saque: ~15% da altura da quadra em píxeis
         court_h_px = max(p[1] for p in roi_px) - min(p[1] for p in roi_px)
