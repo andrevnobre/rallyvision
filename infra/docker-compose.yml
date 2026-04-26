@@ -2,7 +2,7 @@ services:
   api:
     build: ../backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file: .env
     depends_on:
       db:
@@ -10,9 +10,8 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ../backend:/app
       - uploads:/uploads
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
 
   worker:
     build: ../backend
@@ -23,23 +22,17 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ../backend:/app
       - uploads:/uploads
       - ../ml/spike:/ml/spike
     command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=1
 
   frontend:
-    image: node:22-alpine
-    working_dir: /app
+    build:
+      context: ../frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://api.bt-vision.com
     ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-    volumes:
-      - ../frontend:/app
-      - frontend_nm:/app/node_modules
-      - frontend_next:/app/.next
-    command: sh -c "npm install --prefer-offline && npm run dev"
+      - "127.0.0.1:3000:3000"
 
   db:
     image: postgres:15-alpine
@@ -49,8 +42,6 @@ services:
       POSTGRES_DB: rallyvision
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rally -d rallyvision"]
       interval: 5s
@@ -59,8 +50,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -70,5 +59,3 @@ services:
 volumes:
   postgres_data:
   uploads:
-  frontend_nm:
-  frontend_next:
