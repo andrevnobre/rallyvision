@@ -131,39 +131,65 @@ async def stream_and_store(file, original_filename: str, max_bytes: int) -> tupl
 
 
 def upload_thumbnail(video_bytes: bytes, video_storage_key: str) -> None:
-    """Extrai o primeiro frame do vídeo e guarda como thumbnail JPEG."""
+    """
+    Extrai o primeiro frame do vídeo e guarda como thumbnail JPEG.
+    Tentativa 1: cv2 nos primeiros bytes (rápido, funciona para MP4 faststart).
+    Tentativa 2: ffmpeg via presigned URL (funciona para MP4 não-faststart —
+                 o ffmpeg faz range requests e encontra o moov atom no fim).
+    """
+    import subprocess
     import cv2
-    import numpy as np
 
+    jpeg: bytes | None = None
+
+    # Tentativa 1: cv2 nos primeiros bytes
     ext = Path(video_storage_key).suffix.lower()
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
         tmp.write(video_bytes)
         tmp_path = Path(tmp.name)
-
     try:
         cap = cv2.VideoCapture(str(tmp_path))
         ret, frame = cap.read()
         cap.release()
-        if not ret:
-            return
-
-        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        jpeg = buf.tobytes()
-        thumb_key = _thumb_key(video_storage_key)
-
-        if _use_s3():
-            _s3().put_object(
-                Bucket=settings.s3_bucket,
-                Key=thumb_key,
-                Body=jpeg,
-                ContentType="image/jpeg",
-            )
-        else:
-            dest = LOCAL_UPLOAD_DIR / thumb_key
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_bytes(jpeg)
+        if ret:
+            _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            jpeg = buf.tobytes()
     finally:
         tmp_path.unlink(missing_ok=True)
+
+    # Tentativa 2: ffmpeg com presigned URL (MP4 não-faststart — moov no fim)
+    if jpeg is None and _use_s3():
+        url = get_presigned_url(video_storage_key, expires=300)
+        if url:
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as out:
+                out_path = Path(out.name)
+            try:
+                result = subprocess.run(
+                    ["ffmpeg", "-i", url, "-vframes", "1", "-q:v", "2", str(out_path), "-y"],
+                    capture_output=True, timeout=60,
+                )
+                if result.returncode == 0 and out_path.stat().st_size > 0:
+                    jpeg = out_path.read_bytes()
+            except Exception:
+                pass
+            finally:
+                out_path.unlink(missing_ok=True)
+
+    if jpeg is None:
+        return
+
+    thumb_key = _thumb_key(video_storage_key)
+    if _use_s3():
+        _s3().put_object(
+            Bucket=settings.s3_bucket,
+            Key=thumb_key,
+            Body=jpeg,
+            ContentType="image/jpeg",
+        )
+    else:
+        dest = LOCAL_UPLOAD_DIR / thumb_key
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(jpeg)
 
 
 def get_thumbnail_jpeg(video_storage_key: str) -> bytes | None:
