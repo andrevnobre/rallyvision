@@ -35,7 +35,11 @@ class FailBody(BaseModel):
 
 
 @router.put("/videos/{video_id}/progress", dependencies=[Depends(_require_worker_key)])
-def update_progress(video_id: str, body: ProgressBody):
+def update_progress(video_id: str, body: ProgressBody, db: Session = Depends(get_db)):
+    video = db.get(Video, video_id)
+    if video and video.status == "pending":
+        video.status = "processing"
+        db.commit()
     try:
         r = redis_lib.from_url(settings.redis_url, decode_responses=True)
         r.set(f"btvision:progress:{video_id}", body.progress, ex=_PROGRESS_TTL)
