@@ -77,14 +77,24 @@ export default function VideoPage() {
       await processVideo(id, points, orientation, netPoints);
       const v = await getVideo(id);
       setVideo(v);
-      const interval = setInterval(async () => {
+
+      const progressInterval = setInterval(async () => {
+        try {
+          const { progress } = await getVideoProgress(id);
+          setProcessingPct(progress);
+        } catch { /* silencia */ }
+      }, 2000);
+
+      const statusInterval = setInterval(async () => {
         const updated = await getVideo(id);
         setVideo(updated);
         if (updated.status === "done" && updated.result) {
           setResult(JSON.parse(updated.result));
-          clearInterval(interval);
+          clearInterval(statusInterval);
+          clearInterval(progressInterval);
         } else if (updated.status === "failed") {
-          clearInterval(interval);
+          clearInterval(statusInterval);
+          clearInterval(progressInterval);
         }
       }, 4000);
     } catch (e) {
