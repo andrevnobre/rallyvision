@@ -73,6 +73,7 @@ export interface VideoStatus {
   created_at: string;
   error: string | null;
   result: string | null;
+  share_token: string | null;
 }
 
 export interface Rally {
@@ -170,6 +171,30 @@ export function getThumbnailUrl(id: string): string {
 
 export function getStreamUrl(id: string): string {
   return `${API}/videos/${id}/stream`;
+}
+
+export async function createShareLink(id: string): Promise<VideoStatus> {
+  const res = await apiFetch(`${API}/videos/${id}/share`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function revokeShareLink(id: string): Promise<VideoStatus> {
+  const res = await apiFetch(`${API}/videos/${id}/share`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getSharedVideo(token: string): Promise<VideoStatus> {
+  const res = await fetch(`${API}/videos/shared/${token}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 export async function processVideo(

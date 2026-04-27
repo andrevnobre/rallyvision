@@ -23,4 +23,5 @@ class Video(Base):
     net_points: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON [[nx,ny],[nx,ny]]
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     result: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
+    share_token: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True, index=True)
     owner: Mapped["User | None"] = relationship("User", back_populates="videos")  # type: ignore[name-defined]

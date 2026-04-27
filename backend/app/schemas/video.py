@@ -19,6 +19,17 @@ class VideoStatusResponse(BaseModel):
     created_at: datetime
     error: str | None = None
     result: str | None = None
+    share_token: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class SharedVideoResponse(BaseModel):
+    id: str
+    filename: str
+    status: str
+    created_at: datetime
+    result: str | None = None
 
     model_config = {"from_attributes": True}
 

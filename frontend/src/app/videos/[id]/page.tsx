@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, removeToken, type VideoStatus, type VideoResult } from "@/lib/api";
+import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, type VideoStatus, type VideoResult } from "@/lib/api";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtROISelector, type ROIResult } from "@/components/CourtROISelector";
 import { CourtReplay } from "@/components/CourtReplay";
@@ -31,6 +31,9 @@ export default function VideoPage() {
   const [submitting, setSubmitting] = useState(false);
   const [processingPct, setProcessingPct] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
 
   function logout() { removeToken(); router.push("/auth/login"); }
 
@@ -107,6 +110,27 @@ export default function VideoPage() {
     }, 4000);
   }
 
+  async function handleShare() {
+    if (!video) return;
+    setShareLoading(true);
+    try {
+      const updated = video.share_token
+        ? await revokeShareLink(video.id)
+        : await createShareLink(video.id);
+      setVideo(updated);
+      if (updated.share_token) setShareOpen(true);
+    } finally {
+      setShareLoading(false);
+    }
+  }
+
+  function copyShareLink() {
+    if (!video?.share_token) return;
+    navigator.clipboard.writeText(`${window.location.origin}/shared/${video.share_token}`);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  }
+
   if (!video) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -116,6 +140,7 @@ export default function VideoPage() {
   }
 
   const statusCfg = STATUS_CFG[video.status];
+  const shareUrl = video.share_token ? `${typeof window !== "undefined" ? window.location.origin : ""}/shared/${video.share_token}` : null;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
@@ -265,7 +290,65 @@ export default function VideoPage() {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                     Exportar PDF
                   </button>
+                  <button
+                    className="bv-btn bv-btn-sm"
+                    style={{ background: video.share_token ? "var(--surface-2)" : "var(--green)", color: video.share_token ? "var(--text)" : "#fff", border: "none" }}
+                    onClick={() => video.share_token ? setShareOpen(true) : handleShare()}
+                    disabled={shareLoading}
+                  >
+                    {shareLoading ? <div className="bv-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>
+                    )}
+                    {video.share_token ? "Partilhado" : "Partilhar"}
+                  </button>
                 </div>
+
+                {/* Modal de partilha */}
+                {shareOpen && (
+                  <div
+                    style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+                    onClick={() => setShareOpen(false)}
+                  >
+                    <div
+                      style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-lg)", padding: 28, width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", gap: 20 }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <div>
+                        <div style={{ fontFamily: "var(--f-head)", fontSize: 17, fontWeight: 600, marginBottom: 6 }}>Partilhar relatório</div>
+                        <div style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.5 }}>
+                          Qualquer pessoa com este link pode ver o relatório sem precisar de conta.
+                        </div>
+                      </div>
+                      {shareUrl && (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input
+                            readOnly
+                            value={shareUrl}
+                            style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--border-2)", borderRadius: "var(--radius)", padding: "8px 12px", fontSize: 13, color: "var(--text-dim)", fontFamily: "var(--f-mono)", outline: "none" }}
+                            onFocus={e => e.target.select()}
+                          />
+                          <button
+                            className="bv-btn bv-btn-sm"
+                            style={{ background: shareCopied ? "var(--green)" : "var(--surface-2)", color: shareCopied ? "#fff" : "var(--text)", border: "none", flexShrink: 0 }}
+                            onClick={copyShareLink}
+                          >
+                            {shareCopied ? "Copiado!" : "Copiar"}
+                          </button>
+                        </div>
+                      )}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 4, borderTop: "1px solid var(--border)" }}>
+                        <button
+                          style={{ fontSize: 13, color: "#fca5a5", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                          onClick={handleShare}
+                          disabled={shareLoading}
+                        >
+                          {shareLoading ? "A revogar…" : "Revogar link"}
+                        </button>
+                        <button className="bv-btn bv-btn-ghost bv-btn-sm" onClick={() => setShareOpen(false)}>Fechar</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* STAT CARDS — linha 1 */}

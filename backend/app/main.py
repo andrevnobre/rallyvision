@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.config import settings
 from app.database import Base, engine
@@ -9,6 +10,12 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.internal import router as internal_router
 
 Base.metadata.create_all(bind=engine)
+
+with engine.connect() as _conn:
+    _conn.execute(text(
+        "ALTER TABLE videos ADD COLUMN IF NOT EXISTS share_token VARCHAR(36) NULL UNIQUE"
+    ))
+    _conn.commit()
 
 app = FastAPI(
     title="BT Vision API",

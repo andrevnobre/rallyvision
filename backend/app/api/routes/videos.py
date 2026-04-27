@@ -1,4 +1,5 @@
 import json
+import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.models.video import Video
-from app.schemas.video import ProcessRequest, VideoStatusResponse, VideoUploadResponse
+from app.schemas.video import ProcessRequest, SharedVideoResponse, VideoStatusResponse, VideoUploadResponse
 from app.services.auth import get_current_user
 from app.services.storage import get_local_path, get_presigned_url, get_thumbnail_jpeg, stream_and_store, upload_thumbnail
 from app.worker.tasks import process_video
@@ -188,6 +189,43 @@ def get_progress(video_id: str, db: Session = Depends(get_db)):
     r = redis_lib.from_url(settings.redis_url, decode_responses=True)
     val = r.get(f"btvision:progress:{video_id}")
     return {"progress": int(val) if val else 0, "status": video.status}
+
+
+@router.post("/{video_id}/share", response_model=VideoStatusResponse)
+def create_share(
+    video_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    video = _own_or_404(video_id, current_user, db)
+    if video.status != "done":
+        raise HTTPException(409, "Só é possível partilhar vídeos já analisados")
+    if not video.share_token:
+        video.share_token = str(uuid.uuid4())
+        db.commit()
+        db.refresh(video)
+    return video
+
+
+@router.delete("/{video_id}/share", response_model=VideoStatusResponse)
+def revoke_share(
+    video_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    video = _own_or_404(video_id, current_user, db)
+    video.share_token = None
+    db.commit()
+    db.refresh(video)
+    return video
+
+
+@router.get("/shared/{token}", response_model=SharedVideoResponse)
+def get_shared(token: str, db: Session = Depends(get_db)):
+    video = db.query(Video).filter(Video.share_token == token).first()
+    if not video:
+        raise HTTPException(404, "Link de partilha inválido ou revogado")
+    return video
 
 
 @router.get("/{video_id}", response_model=VideoStatusResponse)
