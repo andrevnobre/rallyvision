@@ -75,17 +75,24 @@ export default function VideoPage() {
     setError(null);
     try {
       await processVideo(id, points, orientation, netPoints);
-      const v = await getVideo(id);
-      setVideo(v);
+    } catch (e) {
+      setError(String(e));
+      setSubmitting(false);
+      return;
+    }
 
-      const progressInterval = setInterval(async () => {
-        try {
-          const { progress } = await getVideoProgress(id);
-          setProcessingPct(progress);
-        } catch { /* silencia */ }
-      }, 2000);
+    // Atualizar estado imediatamente após submit bem-sucedido
+    setVideo(v => v ? { ...v, status: "pending" } : v);
 
-      const statusInterval = setInterval(async () => {
+    const progressInterval = setInterval(async () => {
+      try {
+        const { progress } = await getVideoProgress(id);
+        setProcessingPct(progress);
+      } catch { /* silencia */ }
+    }, 2000);
+
+    const statusInterval = setInterval(async () => {
+      try {
         const updated = await getVideo(id);
         setVideo(updated);
         if (updated.status === "done" && updated.result) {
@@ -96,11 +103,8 @@ export default function VideoPage() {
           clearInterval(statusInterval);
           clearInterval(progressInterval);
         }
-      }, 4000);
-    } catch (e) {
-      setError(String(e));
-      setSubmitting(false);
-    }
+      } catch { /* silencia erros de rede no polling */ }
+    }, 4000);
   }
 
   if (!video) {
