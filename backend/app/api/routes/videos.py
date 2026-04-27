@@ -134,25 +134,24 @@ def _dispatch_gpu(video, body) -> None:
     ]}]
 
     try:
+        # Spot explícito — sobrepõe o $Default (on-demand) do launch template
         ec2.run_instances(
-            LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Latest"},
+            LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Default"},
             MinCount=1, MaxCount=1,
-            InstanceMarketOptions={
-                "MarketType": "spot",
-                "SpotOptions": {"SpotInstanceType": "one-time", "InstanceInterruptionBehavior": "terminate"},
-            },
+            InstanceMarketOptions={"MarketType": "spot", "SpotOptions": {"SpotInstanceType": "one-time", "InstanceInterruptionBehavior": "terminate"}},
             TagSpecifications=tags,
         )
-        _log.info(f"[{video.id}] EC2 spot g4dn.xlarge lançada")
+        _log.info(f"[{video.id}] EC2 spot g5.xlarge lançada")
     except ClientError as e:
-        if e.response["Error"]["Code"] in ("MaxSpotInstanceCountExceeded", "InsufficientInstanceCapacity"):
+        if e.response["Error"]["Code"] in ("MaxSpotInstanceCountExceeded", "InsufficientInstanceCapacity", "SpotMaxPriceTooLow"):
             _log.warning(f"[{video.id}] Spot indisponível ({e.response['Error']['Code']}), a usar on-demand")
+            # Sem InstanceMarketOptions → usa o $Default do template (on-demand)
             ec2.run_instances(
-                LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Latest"},
+                LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Default"},
                 MinCount=1, MaxCount=1,
                 TagSpecifications=tags,
             )
-            _log.info(f"[{video.id}] EC2 on-demand g4dn.xlarge lançada")
+            _log.info(f"[{video.id}] EC2 on-demand g5.xlarge lançada")
         else:
             raise
 
