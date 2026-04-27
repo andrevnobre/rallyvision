@@ -15,10 +15,10 @@ As plataformas de analytics de beach tennis existentes (ex: BT Tracker) exigem u
 BT Vision processa o vídeo da partida automaticamente usando visão computacional e IA para extrair:
 
 - Rastreamento de jogadores e bola frame a frame
-- Mapa de calor de posicionamento
-- Estatísticas de rallies, pontos e erros não forçados
-- Detecção de tacadas (saque, smash, defesa, lob)
-- Relatórios PDF exportáveis por partida
+- Mapa de calor de posicionamento (bola + jogadores)
+- Estatísticas de rallies e duração média
+- Detecção de tacadas (saque, smash, defesa, lob) — em desenvolvimento
+- Relatórios PDF exportáveis por partida — em desenvolvimento
 
 Sem operador. Sem entrada manual. Só o vídeo.
 
@@ -35,14 +35,14 @@ Sem operador. Sem entrada manual. Só o vídeo.
 
 ---
 
-## Stack Técnico (planeado)
+## Stack Técnico
 
-- **Backend:** Python + FastAPI
-- **IA/CV:** YOLOv8 (deteção), ByteTrack (rastreamento), OpenCV
-- **Fila:** Celery + Redis
-- **Frontend:** Next.js + Tailwind CSS
-- **Infra:** AWS S3 (vídeos) + EC2 GPU eu-west-1 (inferência)
-- **Pagamentos:** Stripe (EUR)
+- **Backend:** Python + FastAPI + Celery
+- **IA/CV:** YOLOv8 fine-tuned (`ball_yolo.pt`) + ByteTrack + OpenCV + homografia
+- **Fila:** Celery + Redis / SQS (prod)
+- **Frontend:** Next.js 15 + Tailwind CSS
+- **Infra:** AWS S3 (vídeos) + EC2 GPU spot g4dn/g5.xlarge (inferência) + Lightsail (API+frontend)
+- **Pagamentos:** Stripe (EUR) — em desenvolvimento
 
 ---
 
@@ -72,16 +72,48 @@ Veja o [roadmap detalhado](docs/roadmap.md) e o [planejamento de atividades](doc
 ## Estrutura do Repositório
 
 ```
-btvision/
+rallyvision/
 ├── docs/           # Documentação e planeamento
-├── backend/        # API Python + FastAPI
-├── frontend/       # App Next.js
-├── ml/             # Modelos de visão computacional
-└── infra/          # Configurações de infraestrutura
+├── backend/        # API Python + FastAPI + Celery worker
+├── frontend/       # App Next.js 15
+├── ml/             # Modelos e scripts de visão computacional
+│   └── spike/      # Pipeline validado: ball_yolo.pt, extract_training_frames.py
+└── infra/          # Docker Compose local + GPU worker EC2
 ```
+
+---
+
+## Como Correr Localmente
+
+```bash
+# Pré-requisitos: Docker + Docker Compose
+
+cd infra
+cp .env.example .env   # preencher variáveis (ou usar defaults para modo local)
+docker compose up -d
+
+# API:      http://localhost:8000
+# Frontend: http://localhost:3000
+```
+
+Em modo local (sem credenciais AWS), os vídeos e thumbnails são guardados em disco (`/uploads`). O worker Celery processa os vídeos usando CPU (sem GPU).
 
 ---
 
 ## Estado
 
-🟡 **Fase de Validação** — Spike de ML em curso (TrackNet vs. YOLOv8). Desenvolvimento do produto não iniciado.
+🟢 **MVP em produção** — Pipeline de IA validado e funcional. App disponível em [bt-vision.com](https://bt-vision.com).
+
+| Componente | Estado |
+|---|---|
+| Upload de vídeo (S3 multipart) | ✅ Produção |
+| Seleção de ROI guiada + marcação da rede | ✅ Produção |
+| Deteção de bola (YOLOv8 fine-tuned) | ✅ Produção |
+| Deteção de jogadores (YOLOv8 + ByteTrack) | ✅ Produção |
+| Homografia + heatmaps normalizados | ✅ Produção |
+| Rally detection | ✅ Produção |
+| GPU worker EC2 spot (auto-scaling) | ✅ Produção |
+| Autenticação JWT | ✅ Produção |
+| Pagamentos (Stripe) | 🔲 Planeado |
+| Deteção de pontos e erros | 🔲 Em desenvolvimento |
+| Relatórios PDF | 🔲 Planeado |
