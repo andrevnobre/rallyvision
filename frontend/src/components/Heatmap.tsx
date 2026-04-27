@@ -38,7 +38,11 @@ export function BallHeatmap({
     ctx.fillRect(0, 0, W, H);
     drawCourt(ctx, W, H, orientation);
 
-    positions.forEach(({ cx, cy, conf, nx, ny, proxy }) => {
+    positions
+      .filter(({ nx, ny }) =>
+        !normalized || nx === undefined || (nx >= 0 && nx <= 1 && ny! >= 0 && ny! <= 1)
+      )
+      .forEach(({ cx, cy, conf, nx, ny, proxy }) => {
       const [x, y] = normalized && nx !== undefined
         ? courtToCanvas(nx, ny!, W, H, orientation)
         : pixelToCanvas(cx, cy, COURT_W, COURT_H, W, H, orientation);
