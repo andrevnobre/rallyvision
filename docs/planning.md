@@ -46,27 +46,31 @@ Dois canais a validar em paralelo:
 
 ## 4. Infraestrutura Base (semanas 2–4)
 
-- [ ] Configurar conta AWS (S3, EC2, IAM) — região eu-west-1 (Irlanda)
+- [x] Configurar conta AWS (S3, EC2, IAM) — região eu-west-1 (Irlanda)
 - [x] Definir arquitetura de processamento (EC2 GPU spot + t3.small, low-cost ~$20-30/mês)
 - [ ] Configurar repositório: branches, CI/CD básico, linting
 - [x] Configurar ambiente de desenvolvimento local com Docker Compose
 - [x] Configurar base de dados (PostgreSQL) e cache (Redis)
+- [x] Deploy em produção (Lightsail small_3_0 eu-west-1a, 52.50.143.65)
+- [x] Worker GPU em EC2 spot g4dn/g5.xlarge com auto-terminação por inatividade
 
 ---
 
 ## 5. Pipeline de IA (semanas 3–8)
 
 ### 5a. Deteção e Rastreamento
-- [ ] Implementar deteção de quadra (homografia para normalizar perspectiva)
+- [x] Implementar deteção de quadra (homografia 4-pontos; 6-pontos RANSAC quando net_points disponível)
 - [x] Implementar deteção de jogadores (YOLOv8 + ByteTrack) — validado em spike
 - [x] Implementar deteção de bola (YOLOv8 fine-tuned) — `ball_yolo.pt` validado
-- [ ] Pipeline de pré-processamento de vídeo (resize, fps normalization)
+- [x] Pipeline de pré-processamento de vídeo (resize, fps normalization)
+- [ ] Fine-tuning adicional do ball_yolo.pt com dados extraídos (script `extract_training_frames.py` criado; workflow Roboflow pendente)
 
 ### 5b. Extração de Stats
-- [ ] Detetar início e fim de rallies
-- [ ] Calcular posicionamento médio por jogador
-- [ ] Gerar dados para heatmap de posicionamento
+- [x] Detetar início e fim de rallies
+- [x] Calcular posicionamento médio por jogador (heatmaps normalizados)
+- [x] Gerar dados para heatmap de posicionamento (bola + jogadores)
 - [ ] Detetar pontos (bola fora ou no chão)
+- [ ] Contagem de erros não forçados
 
 ### 5c. Fila de Processamento
 - [x] Implementar worker Celery para processar vídeos assincronamente
@@ -78,9 +82,10 @@ Dois canais a validar em paralelo:
 ## 6. Backend / API (semanas 5–10)
 
 - [x] Setup FastAPI com estrutura de projeto
-- [ ] Autenticação JWT (login, registo, refresh token)
-- [x] Endpoint de upload de vídeo (multipart, validação de formato/tamanho)
+- [x] Autenticação JWT (login, registo, refresh token)
+- [x] Endpoint de upload de vídeo (multipart, validação de formato/tamanho, streaming S3 multipart)
 - [x] Endpoints de análise (submeter, estado, resultado)
+- [x] Geração de thumbnail via PyAV (suporta MP4 não-faststart via presigned URL)
 - [ ] Endpoints de perfil individual (histórico de partidas, evolução)
 - [ ] Endpoints de dashboard coach (lista de alunos, partidas)
 - [ ] Sistema de planos e limites (Free: 2 vídeos/mês, Pro: 8 vídeos/mês, Club: 20 vídeos/mês)
@@ -91,10 +96,12 @@ Dois canais a validar em paralelo:
 ## 7. Frontend (semanas 7–12)
 
 - [x] Setup Next.js + Tailwind CSS
-- [ ] Ecrãs de autenticação (login, registo, recuperação de password)
-- [ ] Dashboard individual (lista de partidas analisadas + heatmap pessoal)
+- [x] Ecrãs de autenticação (login, registo)
+- [ ] Recuperação de senha
+- [x] Dashboard individual (lista de partidas analisadas)
 - [x] Ecrã de upload com acompanhamento de progresso
-- [x] Ecrã de resultado de análise (stats + heatmap + gráficos) — heatmap sem normalização de perspetiva (pendente)
+- [x] Seletor de ROI guiado (4 cantos com diagrama + marcação manual da rede para homografia 6-pontos)
+- [x] Ecrã de resultado de análise (stats + heatmap bola + heatmap jogadores + replay interativo)
 - [ ] Perfil pessoal e histórico de evolução entre partidas
 - [ ] Dashboard do coach (vista de múltiplos alunos — simplificada no MVP)
 - [ ] Ecrã de planos e pagamento (EUR)
@@ -114,7 +121,8 @@ Dois canais a validar em paralelo:
 
 - [ ] Testes com clube piloto (Espinho) + 5 utilizadores individuais beta
 - [ ] Ajustes baseados no feedback dos beta testers
-- [ ] Setup de domínio, SSL, monitoramento (Sentry, logs)
+- [x] Setup de domínio e SSL (api.bt-vision.com + bt-vision.com via Route 53 + Lightsail)
+- [ ] Monitoramento (Sentry, alertas de erro)
 - [ ] Landing page de pré-lançamento
 - [ ] Lançamento público para lista de espera
 - [ ] Meta: 10+ subscritores pagantes (Pro ou Club)
