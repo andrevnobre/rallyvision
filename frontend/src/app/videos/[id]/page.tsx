@@ -189,7 +189,12 @@ export default function VideoPage() {
                 {[
                   { label: "Upload concluído", done: true },
                   { label: "ROI confirmado", done: true },
-                  { label: "A detetar jogadores e bola", active: true },
+                  {
+                    label: video.status === "pending" ? "A iniciar infraestrutura…" : "Infraestrutura pronta",
+                    active: video.status === "pending",
+                    done: video.status === "processing",
+                  },
+                  { label: "A detetar jogadores e bola", active: video.status === "processing", waiting: video.status === "pending" },
                   { label: "A gerar heatmaps", waiting: true },
                   { label: "A gerar relatório", waiting: true },
                 ].map(s => (
