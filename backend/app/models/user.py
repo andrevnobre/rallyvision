@@ -13,7 +13,7 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
-    plan: Mapped[str] = mapped_column(String(20), default="free")
+    plan: Mapped[str] = mapped_column(String(20), default="pro")
     is_admin: Mapped[bool] = mapped_column(default=False)
     is_suspended: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(

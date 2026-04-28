@@ -96,8 +96,8 @@ export default function Home() {
           </Link>
           <div className="bv-header-sep" />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span className={`bv-badge bv-badge-${userPlan}`} style={{ textTransform: "capitalize" }}>{userPlan}</span>
-            <span className="bv-hide-mobile" style={{ fontSize: 13, color: "var(--text-dim)" }}>{doneCount} de {planAnalyses} análises usadas este mês</span>
+            <span className="bv-badge bv-badge-pro">Pro</span>
+            <span className="bv-hide-mobile" style={{ fontSize: 13, color: "var(--text-dim)" }}>Acesso gratuito · beta</span>
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -119,10 +119,6 @@ export default function Home() {
               <div style={{ fontFamily: "var(--f-head)", fontSize: 24, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 4 }}>Os meus vídeos</div>
               <div style={{ fontSize: 14, color: "var(--text-dim)" }}>Carrega partidas e treinos para análise automática.</div>
             </div>
-            <Link href="/landing#pricing" className="bv-btn bv-btn-ghost bv-btn-sm" style={{ whiteSpace: "nowrap" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
-              Fazer upgrade
-            </Link>
           </div>
 
           {/* STAT STRIP */}
@@ -130,7 +126,7 @@ export default function Home() {
             {[
               { icon: <svg viewBox="0 0 24 24" fill="none" stroke="var(--green-l)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>, val: String(videos.length), lbl: "Vídeos carregados", iconBg: "var(--green-bg)" },
               { icon: <svg viewBox="0 0 24 24" fill="none" stroke="var(--green-l)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>, val: String(doneCount), lbl: "Análises concluídas", iconBg: "var(--green-bg)" },
-              { icon: <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>, val: `${Math.max(0, planAnalyses - doneCount)} / ${planAnalyses}`, lbl: "Análises disponíveis", iconBg: "var(--surface-2)" },
+              { icon: <svg viewBox="0 0 24 24" fill="none" stroke="var(--green-l)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>, val: "Pro · beta", lbl: "Acesso gratuito", iconBg: "var(--green-bg)" },
             ].map(s => (
               <div key={s.lbl} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "18px 20px", display: "flex", alignItems: "center", gap: 16 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: s.iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

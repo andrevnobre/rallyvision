@@ -303,38 +303,43 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* PRICING */}
+      {/* PRICING — beta gratuito */}
       <section id="pricing" style={{ padding: "0 0 100px" }}>
         <div className="bv-container">
-          <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--green)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Planos</div>
-          <h2 style={{ fontSize: "clamp(28px, 3vw, 42px)", fontWeight: 700, marginBottom: 16 }}>Simples. Sem surpresas.</h2>
-          <p style={{ fontSize: 17, color: "var(--text-muted)", marginBottom: 0, fontWeight: 300 }}>Começa grátis. Escala conforme precisas.</p>
-          <div className="bv-grid-3" style={{ gap: 24, marginTop: 56, alignItems: "start" }}>
-            {PLANS.map(p => (
-              <div key={p.tier} style={{ background: "var(--surface)", border: `1px solid ${p.featured ? "var(--green)" : "var(--border)"}`, borderRadius: "var(--radius-lg)", padding: "32px 28px", display: "flex", flexDirection: "column", gap: 24, position: "relative", boxShadow: p.featured ? "0 0 0 1px var(--green), 0 20px 60px rgba(22,163,74,0.1)" : "none" }}>
-                {p.featured && <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "var(--green)", color: "#fff", fontFamily: "var(--f-head)", fontSize: 12, fontWeight: 600, padding: "4px 14px", borderRadius: 100, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>Mais popular</div>}
-                <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: p.featured ? "var(--green)" : "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{p.tier}</div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                  <div style={{ fontFamily: "var(--f-head)", fontSize: 48, fontWeight: 700, letterSpacing: "-0.04em" }}>{p.price}</div>
-                  <div style={{ fontSize: 14, color: "var(--text-dim)" }}>/mês</div>
+          <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--green)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Acesso antecipado</div>
+          <h2 style={{ fontSize: "clamp(28px, 3vw, 42px)", fontWeight: 700, marginBottom: 16 }}>Totalmente gratuito durante o beta.</h2>
+          <p style={{ fontSize: 17, color: "var(--text-muted)", fontWeight: 300 }}>Estamos em fase de testes. Cria conta agora e acede a todas as funcionalidades Pro sem qualquer custo.</p>
+
+          <div style={{ marginTop: 56, maxWidth: 560 }}>
+            <div style={{ background: "var(--surface)", border: "1px solid var(--green)", borderRadius: "var(--radius-lg)", padding: "40px 36px", display: "flex", flexDirection: "column", gap: 28, boxShadow: "0 0 0 1px var(--green), 0 20px 60px rgba(22,163,74,0.1)", position: "relative" }}>
+              <div style={{ position: "absolute", top: -14, left: 36, background: "var(--green)", color: "#fff", fontFamily: "var(--f-head)", fontSize: 12, fontWeight: 600, padding: "4px 14px", borderRadius: 100, letterSpacing: "0.04em" }}>Beta · acesso gratuito</div>
+
+              <div>
+                <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--green)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>Pro</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                  <div style={{ fontFamily: "var(--f-head)", fontSize: 48, fontWeight: 700, letterSpacing: "-0.04em" }}>€0</div>
+                  <div style={{ fontSize: 14, color: "var(--text-dim)" }}>durante o período beta</div>
                 </div>
-                <div style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.55, fontWeight: 300 }}>{p.desc}</div>
-                <hr style={{ border: "none", borderTop: "1px solid var(--border)" }} />
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {p.features.map(f => (
-                    <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--text-muted)" }}>
-                      <CheckIcon />{f}
-                    </div>
-                  ))}
-                  {p.missing.map(f => (
-                    <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--text-dim)" }}>
-                      <div style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--surface-2)", flexShrink: 0 }} />{f}
-                    </div>
-                  ))}
-                </div>
-                <Link href={p.href} className={`bv-btn ${p.featured ? "bv-btn-green" : "bv-btn-ghost"}`} style={{ width: "100%", justifyContent: "center" }}>{p.cta}</Link>
               </div>
-            ))}
+
+              <hr style={{ border: "none", borderTop: "1px solid var(--border)" }} />
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {PLANS[1].features.map(f => (
+                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--text-muted)" }}>
+                    <CheckIcon />{f}
+                  </div>
+                ))}
+              </div>
+
+              <Link href="/auth/register" className="bv-btn bv-btn-green" style={{ justifyContent: "center" }}>
+                Criar conta grátis
+              </Link>
+
+              <p style={{ fontSize: 12, color: "var(--text-dim)", margin: 0, textAlign: "center" }}>
+                Sem cartão de crédito. Sem compromisso.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -345,7 +350,7 @@ export default function LandingPage() {
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 60% 100% at 80% 50%, rgba(22,163,74,0.07) 0%, transparent 60%)", pointerEvents: "none" }} />
           <div style={{ flex: 1 }}>
             <h2 style={{ fontSize: 32, fontWeight: 700, marginBottom: 10 }}>Pronto para analisar a tua próxima partida?</h2>
-            <p style={{ fontSize: 16, color: "var(--text-muted)", fontWeight: 300 }}>Começa grátis. Sem cartão de crédito. Resultados em minutos.</p>
+            <p style={{ fontSize: 16, color: "var(--text-muted)", fontWeight: 300 }}>Acesso Pro gratuito durante o beta. Sem cartão de crédito. Resultados em minutos.</p>
           </div>
           <Link href="/auth/register" className="bv-btn bv-btn-green bv-btn-green-lg" style={{ flexShrink: 0 }}>Criar conta grátis</Link>
         </div>

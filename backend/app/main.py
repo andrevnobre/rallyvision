@@ -22,6 +22,7 @@ with engine.connect() as _conn:
     _conn.execute(text(
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT FALSE"
     ))
+    _conn.execute(text("UPDATE users SET plan = 'pro' WHERE plan = 'free'"))
     if settings.admin_email:
         _conn.execute(
             text("UPDATE users SET is_admin = TRUE WHERE email = :e"),
