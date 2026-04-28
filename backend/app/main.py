@@ -6,6 +6,7 @@ from app.config import settings
 from app.database import Base, engine
 from app.models import User, Video  # noqa: F401 — garante que create_all vê todos os modelos
 from app.api.routes import videos
+from app.api.routes.admin import router as admin_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.internal import router as internal_router
 
@@ -15,6 +16,17 @@ with engine.connect() as _conn:
     _conn.execute(text(
         "ALTER TABLE videos ADD COLUMN IF NOT EXISTS share_token VARCHAR(36) NULL UNIQUE"
     ))
+    _conn.execute(text(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE"
+    ))
+    _conn.execute(text(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT FALSE"
+    ))
+    if settings.admin_email:
+        _conn.execute(
+            text("UPDATE users SET is_admin = TRUE WHERE email = :e"),
+            {"e": settings.admin_email},
+        )
     _conn.commit()
 
 app = FastAPI(
@@ -34,6 +46,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(videos.router)
 app.include_router(internal_router)
+app.include_router(admin_router)
 
 
 @app.get("/health")

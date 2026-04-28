@@ -36,6 +36,7 @@ export interface AuthUser {
   id: string;
   email: string;
   plan: string;
+  is_admin: boolean;
 }
 
 export async function register(email: string, password: string): Promise<string> {
@@ -214,4 +215,102 @@ export async function processVideo(
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await res.text());
+}
+
+// --- admin ---
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  plan: string;
+  is_admin: boolean;
+  is_suspended: boolean;
+  created_at: string;
+  video_count: number;
+}
+
+export interface AdminVideoSummary {
+  id: string;
+  filename: string;
+  status: string;
+  error: string | null;
+  created_at: string;
+}
+
+export interface AdminUserDetail extends AdminUser {
+  videos: AdminVideoSummary[];
+}
+
+export interface AdminVideo {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  filename: string;
+  status: string;
+  error: string | null;
+  created_at: string;
+  has_share_token: boolean;
+}
+
+export interface AdminMetrics {
+  users_total: number;
+  by_plan: { free: number; pro: number; club: number };
+  videos_total: number;
+  by_status: { pending_roi: number; pending: number; queued: number; processing: number; done: number; failed: number };
+  videos_today: number;
+  errors_active: number;
+}
+
+export async function adminGetMetrics(): Promise<AdminMetrics> {
+  const res = await apiFetch(`${API}/admin/metrics`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function adminListUsers(plan?: string, page = 1): Promise<AdminUser[]> {
+  const params = new URLSearchParams({ page: String(page), limit: "50" });
+  if (plan) params.set("plan", plan);
+  const res = await apiFetch(`${API}/admin/users?${params}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function adminGetUser(id: string): Promise<AdminUserDetail> {
+  const res = await apiFetch(`${API}/admin/users/${id}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function adminPatchUser(id: string, body: { plan?: string; is_suspended?: boolean }): Promise<AdminUser> {
+  const res = await apiFetch(`${API}/admin/users/${id}`, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function adminListVideos(status?: string, page = 1): Promise<AdminVideo[]> {
+  const params = new URLSearchParams({ page: String(page), limit: "50" });
+  if (status) params.set("status", status);
+  const res = await apiFetch(`${API}/admin/videos?${params}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function adminRetryVideo(id: string): Promise<void> {
+  const res = await apiFetch(`${API}/admin/videos/${id}/retry`, {
+    method: "POST",
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+export async function adminDeleteVideo(id: string): Promise<void> {
+  const res = await apiFetch(`${API}/admin/videos/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok && res.status !== 204) throw new Error(await res.text());
 }

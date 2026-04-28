@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     worker_api_key: str = ""
     launch_template_id: str = ""
     internal_api_url: str = ""  # public URL of this API, used by GPU worker to report results
+    admin_email: str = ""
 
     @property
     def allowed_origins(self) -> list[str]:

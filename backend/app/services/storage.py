@@ -227,6 +227,22 @@ def get_presigned_url(storage_key: str, expires: int = 3600) -> str | None:
     )
 
 
+def delete_video_files(storage_key: str) -> None:
+    """Elimina o vídeo e o thumbnail associado do S3 ou disco local."""
+    thumb_key = _thumb_key(storage_key)
+    if _use_s3():
+        s3c = _s3()
+        for key in (storage_key, thumb_key):
+            try:
+                s3c.delete_object(Bucket=settings.s3_bucket, Key=key)
+            except ClientError:
+                pass
+    else:
+        for key in (storage_key, thumb_key):
+            path = LOCAL_UPLOAD_DIR / key
+            path.unlink(missing_ok=True)
+
+
 def download_video(storage_key: str, dest_path: Path) -> None:
     """Faz download do vídeo para caminho local (usado pelo worker)."""
     if _use_s3():

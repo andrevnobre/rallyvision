@@ -14,6 +14,8 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     plan: Mapped[str] = mapped_column(String(20), default="free")
+    is_admin: Mapped[bool] = mapped_column(default=False)
+    is_suspended: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

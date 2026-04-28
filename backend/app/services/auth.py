@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status as http_status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -37,10 +37,18 @@ def get_current_user(
         payload = jwt.decode(credentials.credentials, settings.secret_key, algorithms=[_ALGORITHM])
         user_id: str | None = payload.get("sub")
     except JWTError:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token inválido")
+        raise HTTPException(http_status.HTTP_401_UNAUTHORIZED, "Token inválido")
     if not user_id:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token inválido")
+        raise HTTPException(http_status.HTTP_401_UNAUTHORIZED, "Token inválido")
     user = db.get(User, user_id)
     if not user:
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Utilizador não encontrado")
+        raise HTTPException(http_status.HTTP_401_UNAUTHORIZED, "Utilizador não encontrado")
+    if user.is_suspended:
+        raise HTTPException(http_status.HTTP_403_FORBIDDEN, "Conta suspensa")
     return user
+
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    if not current_user.is_admin:
+        raise HTTPException(http_status.HTTP_403_FORBIDDEN, "Acesso reservado a administradores")
+    return current_user
