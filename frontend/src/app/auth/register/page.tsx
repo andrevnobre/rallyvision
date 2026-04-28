@@ -72,15 +72,15 @@ export default function RegisterPage() {
             <div className="bv-nav-logo-dot" />
             BT Vision
           </div>
-          <div style={{ fontFamily: "var(--f-head)", fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6 }}>Começar grátis.</div>
-          <div style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 24, fontWeight: 300 }}>Cria a tua conta e analisa as primeiras 2 partidas sem custos.</div>
+          <div style={{ fontFamily: "var(--f-head)", fontSize: 26, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 6 }}>Criar conta grátis.</div>
+          <div style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 24, fontWeight: 300 }}>Acesso completo durante o beta. Sem cartão de crédito.</div>
 
-          {/* Free badge */}
+          {/* Beta badge */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--green-bg)", border: "1px solid var(--green-dim)", borderRadius: "var(--radius)", padding: "12px 16px", fontSize: 13, color: "var(--green-l)", marginBottom: 24 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
-            Plano Free · Sem cartão de crédito · 2 análises por mês
+            Plano Pro · Grátis durante o beta · Sem limites
           </div>
 
           <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
