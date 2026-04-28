@@ -80,6 +80,32 @@
 - Celery permite priorizar jobs (usuários Pro na frente)
 - Redis serve como broker e cache de sessões
 
+### Sistema Administrativo
+
+O backoffice reutiliza o JWT existente — não há sistema de auth separado.
+
+**Modelo `User`** — campos adicionais:
+- `is_admin: bool` — controla acesso às rotas `/admin`
+- `is_suspended: bool` — bloqueia login (403) sem apagar dados
+
+**Seed automático:** na inicialização da API, se `ADMIN_EMAIL` estiver definido nas env vars, executa `UPDATE users SET is_admin = TRUE WHERE email = :e`. Requer recreação do container (não apenas restart) para ler novas env vars.
+
+**Dependency `require_admin`** (`services/auth.py`) — verifica `is_admin` após `get_current_user`; retorna 403 se falhar. Todas as rotas `/admin/*` dependem dela.
+
+**Endpoints REST** (`routes/admin.py`):
+
+| Método | Path | Descrição |
+|--------|------|-----------|
+| GET | `/admin/metrics` | Totais por plano/estado, vídeos hoje, erros activos |
+| GET | `/admin/users` | Lista paginada; filtro `?plan=` |
+| GET | `/admin/users/{id}` | Detalhe + últimos 20 vídeos |
+| PATCH | `/admin/users/{id}` | Alterar plano / suspender conta |
+| GET | `/admin/videos` | Lista paginada; filtro `?status=` |
+| POST | `/admin/videos/{id}/retry` | Re-enfileirar job `failed` → `pending` |
+| DELETE | `/admin/videos/{id}` | Eliminar vídeo + S3 (via `delete_video_files`) |
+
+**Frontend** — secção `src/app/admin/` com layout protegido (client-side guard via `/auth/me`) e quatro páginas: dashboard, lista de utilizadores, detalhe de utilizador, lista de vídeos.
+
 ### Por que Next.js?
 - SSR para SEO da landing page
 - App Router para dashboard (cliente)

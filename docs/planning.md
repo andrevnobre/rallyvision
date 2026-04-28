@@ -146,6 +146,24 @@ Aquisição individual (8) ──> corre em paralelo com (7) e (9)
 
 ---
 
+## 10. Sistema Administrativo (backoffice)
+
+- [x] Campo `is_admin` e `is_suspended` no modelo `User` com migrations automáticas em `main.py`
+- [x] Seed automático de admin por `ADMIN_EMAIL` (env var) na inicialização da API
+- [x] Dependency `require_admin` no FastAPI; `get_current_user` bloqueia contas suspensas (403)
+- [x] `GET /admin/metrics` — totais de utilizadores por plano, vídeos por estado, vídeos hoje, erros activos
+- [x] `GET /admin/users` — lista paginada com filtro por plano; `GET /admin/users/{id}` — detalhe com últimos 20 vídeos
+- [x] `PATCH /admin/users/{id}` — alterar plano (`free`/`pro`/`club`) e suspender/reactivar conta
+- [x] `GET /admin/videos` — lista paginada com filtro por estado
+- [x] `POST /admin/videos/{id}/retry` — re-enfileirar job falhado (status → `pending`, limpa `error`)
+- [x] `DELETE /admin/videos/{id}` — eliminar vídeo + ficheiro S3/disco
+- [x] `is_admin` exposto em `/auth/me` para o frontend controlar o acesso ao menu admin
+- [x] Frontend: layout `/admin` protegido (redireciona não-admins), sidebar de navegação
+- [x] Frontend: dashboard com cards de métricas, tabela de utilizadores, tabela de vídeos com acções inline
+- [x] `backend/reset_password.py` — script local para redefinir senha por email
+
+---
+
 ## Decisões em Aberto
 
 - [x] **Nome final do produto:** BT Vision
