@@ -426,14 +426,14 @@ function JogadorSection() {
         visual={<HeatmapCanvas spots={JOGADOR_SPOTS} />}
       />
 
-      <Feature badge="now" title="Trajetória e análise da bola"
-        desc="Acompanha cada trajectória detectada. Percebe padrões de jogo: de onde sais, para onde atacas, onde perdes mais pontos."
-        bullets={["Detecção automática com YOLOv8 fine-tuned","Percentagem de detecção por partida","Trajetórias sobrepostas no replay interactivo"]}
+      <Feature badge="now" title="Padrões de rally e trajectória"
+        desc="Vê exactamente como constróis os teus pontos. Onde atacas habitualmente, que zonas explores menos, onde o adversário te pressiona mais — visível numa só imagem."
+        bullets={["Trajectórias sobrepostas em quadra normalizada","Identifica zonas de ataque e de erro recorrentes","Compara o teu padrão entre partidas"]}
         visual={<BallTrajectoryCanvas />}
       />
 
       <Feature badge="soon" reverse title="Evolução entre partidas"
-        desc="Acompanha a tua progressão ao longo da época. Vê se a detecção de bola melhorou, se o posicionamento ficou mais consistente, e onde ainda há margem de evolução."
+        desc="Acompanha a tua progressão ao longo da época. Vê se o teu posicionamento melhorou, se os rallies ficaram mais longos e onde ainda há margem de evolução."
         bullets={["Gráficos automáticos por métrica","Comparação com sessões anteriores","Exportação em PDF para o teu coach"]}
         visual={<EvolutionChartCanvas />}
       />
@@ -458,7 +458,7 @@ function CoachSection() {
       </div>
 
       <Feature badge="now" title="Analisa cada jogador individualmente"
-        desc="Cada jogador tem o seu perfil com todas as partidas analisadas. Acedes a heatmaps, percentagem de detecção de bola e contagem de rallies de forma individual, sem misturar dados."
+        desc="Cada jogador tem o seu perfil com todas as partidas analisadas. Heatmaps, trajectórias de rally e contagem de pontos — tudo separado por atleta, sem misturar dados."
         bullets={["Perfil separado por jogador","Histórico completo de partidas","Partilha de relatório por link privado"]}
         visual={<MultiPlayerMockup />}
       />
