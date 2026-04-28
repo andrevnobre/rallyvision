@@ -303,27 +303,54 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* PRICING — beta gratuito */}
+      {/* PRICING */}
       <section id="pricing" style={{ padding: "0 0 100px" }}>
         <div className="bv-container">
-          <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--green)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Acesso antecipado</div>
-          <h2 style={{ fontSize: "clamp(28px, 3vw, 42px)", fontWeight: 700, marginBottom: 16 }}>Totalmente gratuito durante o beta.</h2>
-          <p style={{ fontSize: 17, color: "var(--text-muted)", fontWeight: 300 }}>Estamos em fase de testes. Cria conta agora e acede a todas as funcionalidades Pro sem qualquer custo.</p>
+          <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--green)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Planos</div>
+          <h2 style={{ fontSize: "clamp(28px, 3vw, 42px)", fontWeight: 700, marginBottom: 16 }}>Simples. Sem surpresas.</h2>
+          <p style={{ fontSize: 17, color: "var(--text-muted)", fontWeight: 300 }}>Começa grátis. Escala conforme precisas.</p>
 
-          <div style={{ marginTop: 56, maxWidth: 560 }}>
-            <div style={{ background: "var(--surface)", border: "1px solid var(--green)", borderRadius: "var(--radius-lg)", padding: "40px 36px", display: "flex", flexDirection: "column", gap: 28, boxShadow: "0 0 0 1px var(--green), 0 20px 60px rgba(22,163,74,0.1)", position: "relative" }}>
-              <div style={{ position: "absolute", top: -14, left: 36, background: "var(--green)", color: "#fff", fontFamily: "var(--f-head)", fontSize: 12, fontWeight: 600, padding: "4px 14px", borderRadius: 100, letterSpacing: "0.04em" }}>Beta · acesso gratuito</div>
+          {/* Banner beta */}
+          <div style={{ marginTop: 40, marginBottom: 0, background: "var(--green-bg)", border: "1px solid var(--green-dim)", borderRadius: "var(--radius-lg)", padding: "16px 24px", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green)", flexShrink: 0 }} />
+            <p style={{ margin: 0, fontSize: 14, color: "var(--text-muted)" }}>
+              <strong style={{ color: "var(--text)", fontFamily: "var(--f-head)" }}>Fase beta:</strong> todos os utilizadores têm acesso Pro gratuito. Os restantes planos ficarão disponíveis no lançamento oficial.
+            </p>
+          </div>
 
-              <div>
-                <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--green)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>Pro</div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <div style={{ fontFamily: "var(--f-head)", fontSize: 48, fontWeight: 700, letterSpacing: "-0.04em" }}>€0</div>
-                  <div style={{ fontSize: 14, color: "var(--text-dim)" }}>durante o período beta</div>
-                </div>
+          <div className="bv-grid-3" style={{ gap: 24, marginTop: 32, alignItems: "start" }}>
+            {/* FREE — desactivado */}
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "32px 28px", display: "flex", flexDirection: "column", gap: 24, opacity: 0.45 }}>
+              <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Free</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <div style={{ fontFamily: "var(--f-head)", fontSize: 48, fontWeight: 700, letterSpacing: "-0.04em" }}>€0</div>
+                <div style={{ fontSize: 14, color: "var(--text-dim)" }}>/mês</div>
               </div>
-
+              <div style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.55, fontWeight: 300 }}>{PLANS[0].desc}</div>
               <hr style={{ border: "none", borderTop: "1px solid var(--border)" }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {PLANS[0].features.map(f => (
+                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--text-muted)" }}>
+                    <CheckIcon />{f}
+                  </div>
+                ))}
+              </div>
+              <div className="bv-btn bv-btn-ghost" style={{ justifyContent: "center", cursor: "default", pointerEvents: "none" }}>Disponível no lançamento</div>
+            </div>
 
+            {/* PRO — activo */}
+            <div style={{ background: "var(--surface)", border: "1px solid var(--green)", borderRadius: "var(--radius-lg)", padding: "32px 28px", display: "flex", flexDirection: "column", gap: 24, position: "relative", boxShadow: "0 0 0 1px var(--green), 0 20px 60px rgba(22,163,74,0.1)" }}>
+              <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "var(--green)", color: "#fff", fontFamily: "var(--f-head)", fontSize: 12, fontWeight: 600, padding: "4px 14px", borderRadius: 100, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>Disponível agora · grátis</div>
+              <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--green)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Pro</div>
+              <div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  <div style={{ fontFamily: "var(--f-head)", fontSize: 48, fontWeight: 700, letterSpacing: "-0.04em" }}>€0</div>
+                  <div style={{ fontSize: 14, color: "var(--text-dim)" }}>durante o beta</div>
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-dim)", marginTop: 4 }}>€29/mês após o lançamento</div>
+              </div>
+              <div style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.55, fontWeight: 300 }}>{PLANS[1].desc}</div>
+              <hr style={{ border: "none", borderTop: "1px solid var(--border)" }} />
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {PLANS[1].features.map(f => (
                   <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--text-muted)" }}>
@@ -331,14 +358,26 @@ export default function LandingPage() {
                   </div>
                 ))}
               </div>
+              <Link href="/auth/register" className="bv-btn bv-btn-green" style={{ justifyContent: "center" }}>Criar conta grátis</Link>
+            </div>
 
-              <Link href="/auth/register" className="bv-btn bv-btn-green" style={{ justifyContent: "center" }}>
-                Criar conta grátis
-              </Link>
-
-              <p style={{ fontSize: 12, color: "var(--text-dim)", margin: 0, textAlign: "center" }}>
-                Sem cartão de crédito. Sem compromisso.
-              </p>
+            {/* CLUB — desactivado */}
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: "32px 28px", display: "flex", flexDirection: "column", gap: 24, opacity: 0.45 }}>
+              <div style={{ fontFamily: "var(--f-head)", fontSize: 13, fontWeight: 600, color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Club</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <div style={{ fontFamily: "var(--f-head)", fontSize: 48, fontWeight: 700, letterSpacing: "-0.04em" }}>€99</div>
+                <div style={{ fontSize: 14, color: "var(--text-dim)" }}>/mês</div>
+              </div>
+              <div style={{ fontSize: 14, color: "var(--text-muted)", lineHeight: 1.55, fontWeight: 300 }}>{PLANS[2].desc}</div>
+              <hr style={{ border: "none", borderTop: "1px solid var(--border)" }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {PLANS[2].features.map(f => (
+                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--text-muted)" }}>
+                    <CheckIcon />{f}
+                  </div>
+                ))}
+              </div>
+              <div className="bv-btn bv-btn-ghost" style={{ justifyContent: "center", cursor: "default", pointerEvents: "none" }}>Disponível no lançamento</div>
             </div>
           </div>
         </div>
