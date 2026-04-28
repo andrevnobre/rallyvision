@@ -2,7 +2,7 @@ import json
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
@@ -45,6 +45,7 @@ def list_videos(
 @router.post("/upload", response_model=VideoUploadResponse, status_code=201)
 async def upload(
     file: UploadFile,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -63,6 +64,9 @@ async def upload(
     db.add(video)
     db.commit()
     db.refresh(video)
+
+    # Pré-aquece GPU em background para esconder latência atrás da seleção de ROI
+    background_tasks.add_task(_prewarm_gpu, video.id)
 
     return video
 
@@ -105,11 +109,80 @@ def start_processing(
     return {"status": "accepted"}
 
 
-def _dispatch_gpu(video, body) -> None:
-    """Send SQS message and launch EC2 spot instance (falls back to on-demand if quota exceeded)."""
+_GPU_WORKER_TAGS = [{"ResourceType": "instance", "Tags": [
+    {"Key": "Name", "Value": "rallyvision-gpu-worker"},
+    {"Key": "Purpose", "Value": "rallyvision-gpu-worker"},
+]}]
+
+
+def _gpu_worker_running(ec2, log) -> bool:
+    """Verifica se já existe um worker GPU ativo (pending ou running)."""
+    resp = ec2.describe_instances(Filters=[
+        {"Name": "tag:Purpose", "Values": ["rallyvision-gpu-worker"]},
+        {"Name": "instance-state-name", "Values": ["pending", "running"]},
+    ])
+    for r in resp["Reservations"]:
+        if r["Instances"]:
+            log.info(f"Worker GPU já ativo: {r['Instances'][0]['InstanceId']}")
+            return True
+    return False
+
+
+def _launch_gpu_instance(ec2, label: str, log) -> None:
+    """Lança instância spot com fallback on-demand."""
+    from botocore.exceptions import ClientError
+    from app.config import settings
+
+    try:
+        ec2.run_instances(
+            LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Default"},
+            MinCount=1, MaxCount=1,
+            InstanceMarketOptions={"MarketType": "spot", "SpotOptions": {
+                "SpotInstanceType": "one-time", "InstanceInterruptionBehavior": "terminate",
+            }},
+            TagSpecifications=_GPU_WORKER_TAGS,
+        )
+        log.info(f"[{label}] EC2 spot g5.xlarge lançada")
+    except ClientError as e:
+        if e.response["Error"]["Code"] in (
+            "MaxSpotInstanceCountExceeded", "InsufficientInstanceCapacity", "SpotMaxPriceTooLow"
+        ):
+            log.warning(f"[{label}] Spot indisponível, a usar on-demand")
+            ec2.run_instances(
+                LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Default"},
+                MinCount=1, MaxCount=1,
+                TagSpecifications=_GPU_WORKER_TAGS,
+            )
+            log.info(f"[{label}] EC2 on-demand g5.xlarge lançada")
+        else:
+            raise
+
+
+def _prewarm_gpu(video_id: str) -> None:
+    """Pré-aquece a instância GPU no momento do upload para esconder a latência de arranque."""
     import logging
     import boto3 as boto3_lib
-    from botocore.exceptions import ClientError
+    from app.config import settings
+
+    if not settings.launch_template_id:
+        return
+
+    _log = logging.getLogger(__name__)
+    ec2 = boto3_lib.client("ec2", region_name=settings.aws_region)
+    try:
+        if _gpu_worker_running(ec2, _log):
+            _log.info(f"[{video_id}] Prewarm: worker já existe, nada a fazer")
+            return
+        _launch_gpu_instance(ec2, video_id, _log)
+        _log.info(f"[{video_id}] GPU pré-aquecida no upload")
+    except Exception as e:
+        _log.warning(f"[{video_id}] Prewarm falhou (não crítico): {e}")
+
+
+def _dispatch_gpu(video, body) -> None:
+    """Envia mensagem SQS e lança EC2 se não houver worker já ativo."""
+    import logging
+    import boto3 as boto3_lib
     from app.config import settings
 
     _log = logging.getLogger(__name__)
@@ -129,32 +202,11 @@ def _dispatch_gpu(video, body) -> None:
     sqs.send_message(QueueUrl=settings.sqs_url, MessageBody=json.dumps(msg))
 
     ec2 = boto3_lib.client("ec2", region_name=settings.aws_region)
-    tags = [{"ResourceType": "instance", "Tags": [
-        {"Key": "Name", "Value": "rallyvision-gpu-worker"},
-        {"Key": "Purpose", "Value": "rallyvision-gpu-worker"},
-    ]}]
+    if _gpu_worker_running(ec2, _log):
+        _log.info(f"[{video.id}] Worker já ativo — só enviou SQS")
+        return
 
-    try:
-        # Spot explícito — sobrepõe o $Default (on-demand) do launch template
-        ec2.run_instances(
-            LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Default"},
-            MinCount=1, MaxCount=1,
-            InstanceMarketOptions={"MarketType": "spot", "SpotOptions": {"SpotInstanceType": "one-time", "InstanceInterruptionBehavior": "terminate"}},
-            TagSpecifications=tags,
-        )
-        _log.info(f"[{video.id}] EC2 spot g5.xlarge lançada")
-    except ClientError as e:
-        if e.response["Error"]["Code"] in ("MaxSpotInstanceCountExceeded", "InsufficientInstanceCapacity", "SpotMaxPriceTooLow"):
-            _log.warning(f"[{video.id}] Spot indisponível ({e.response['Error']['Code']}), a usar on-demand")
-            # Sem InstanceMarketOptions → usa o $Default do template (on-demand)
-            ec2.run_instances(
-                LaunchTemplate={"LaunchTemplateId": settings.launch_template_id, "Version": "$Default"},
-                MinCount=1, MaxCount=1,
-                TagSpecifications=tags,
-            )
-            _log.info(f"[{video.id}] EC2 on-demand g5.xlarge lançada")
-        else:
-            raise
+    _launch_gpu_instance(ec2, video.id, _log)
 
 
 @router.get("/{video_id}/stream")
@@ -189,6 +241,24 @@ def get_progress(video_id: str, db: Session = Depends(get_db)):
     r = redis_lib.from_url(settings.redis_url, decode_responses=True)
     val = r.get(f"btvision:progress:{video_id}")
     return {"progress": int(val) if val else 0, "status": video.status}
+
+
+@router.get("/{video_id}/export")
+def export_result(
+    video_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Exporta o JSON de resultado completo do pipeline para análise offline."""
+    video = _own_or_404(video_id, current_user, db)
+    if not video.result:
+        raise HTTPException(404, "Resultado não disponível — vídeo ainda não analisado")
+    stem = Path(video.filename).stem
+    return Response(
+        content=video.result,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{stem}_result.json"'},
+    )
 
 
 @router.post("/{video_id}/share", response_model=VideoStatusResponse)

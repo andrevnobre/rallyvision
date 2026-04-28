@@ -316,21 +316,37 @@ def run_pipeline(
                 pos["nx"], pos["ny"] = round(nx, 4), round(ny, 4)
 
                 # proxy: corrige altitude da bola (homografia assume plano do chão)
+                # Dispara quando:
+                #   1. jogador próximo (≤ PLAYER_PROXY_PX) — caso normal
+                #   2. bola fora de [0,1] — bola muito alta, posição inválida
+                #   3. ny colado à borda (>0.85 ou <0.10) — altitude projeta bola
+                #      para junto da sideline quando a posição real é interior
+                ball_oob = not (0.0 <= pos["nx"] <= 1.0 and 0.0 <= pos["ny"] <= 1.0)
+                ball_near_boundary = 0.0 <= pos["ny"] <= 1.0 and (
+                    pos["ny"] > 0.85 or pos["ny"] < 0.10
+                )
                 if players:
                     nearest = min(players, key=lambda p: (p["cx"] - bx) ** 2 + (p["cy"] - by) ** 2)
                     dist_px = ((nearest["cx"] - bx) ** 2 + (nearest["cy"] - by) ** 2) ** 0.5
-                    if dist_px <= PLAYER_PROXY_PX:
+                    if dist_px <= PLAYER_PROXY_PX or ball_oob or ball_near_boundary:
                         player_nx, player_ny = _normalize(nearest["cx"], nearest["cy"], H)
                         player_nx_c = max(0.0, min(1.0, player_nx))
                         player_ny_c = max(0.0, min(1.0, player_ny))
                         if camera_orientation == "fundo":
+                            # Fundo em voo normal: só nx (ny ancoraria ao jogador errado).
+                            # Fundo com bola OOB: corrige ambos — a posição bruta é inútil.
                             pos["nx"] = round(player_nx_c, 4)
-                            pos["ny"] = round(player_ny_c, 4)
+                            if ball_oob:
+                                pos["ny"] = round(player_ny_c, 4)
                         else:
                             pos["ny"] = round(player_ny_c, 4)
                         pos["proxy"] = True
                         pos["proxy_player_id"] = str(nearest["id"])
                         pos["proxy_dist_px"] = round(dist_px, 1)
+
+                # Clamp final: garante [0,1] mesmo quando não há jogadores para proxy
+                pos["nx"] = round(max(0.0, min(1.0, pos["nx"])), 4)
+                pos["ny"] = round(max(0.0, min(1.0, pos["ny"])), 4)
 
                 # Kalman: rejeita falsos positivos e suaviza trajetória
                 kf_result = ball_kf.step(pos["nx"], pos["ny"])
