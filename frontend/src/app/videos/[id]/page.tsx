@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, listVideoParticipants, addVideoParticipants, removeVideoParticipant, listCoachPlayers, type VideoStatus, type VideoResult, type ParticipantItem, type CoachPlayerItem } from "@/lib/api";
+import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, listVideoParticipants, addVideoParticipants, removeVideoParticipant, listCoachPlayers, getAnnotations, getMe, type VideoStatus, type VideoResult, type ParticipantItem, type CoachPlayerItem, type Annotation } from "@/lib/api";
 import { exportToPdf } from "@/lib/export-pdf";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtROISelector, type ROIResult } from "@/components/CourtROISelector";
@@ -44,6 +44,8 @@ export default function VideoPage() {
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayerItem[]>([]);
   const [quickAdding, setQuickAdding] = useState<string | null>(null);
   const [replayTimeS, setReplayTimeS] = useState<number | undefined>(undefined);
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [currentUserId, setCurrentUserId] = useState("");
 
   function logout() { removeToken(); router.push("/auth/login"); }
 
@@ -86,6 +88,8 @@ export default function VideoPage() {
 
     listVideoParticipants(id).then(setParticipants).catch(() => {});
     listCoachPlayers().then(setCoachPlayers).catch(() => {});
+    getAnnotations(id).then(setAnnotations).catch(() => {});
+    getMe().then(u => setCurrentUserId(u.id)).catch(() => {});
     pollStatus();
     progressTimer = setInterval(pollProgress, 2000);
 
@@ -611,7 +615,14 @@ export default function VideoPage() {
                     Concluído
                   </span>
                 </div>
-                <CourtReplay videoId={id} result={result} onTimeUpdate={setReplayTimeS} />
+                <CourtReplay
+                  videoId={id}
+                  result={result}
+                  onTimeUpdate={setReplayTimeS}
+                  annotations={annotations}
+                  currentUserId={currentUserId}
+                  onAnnotationCreated={ann => setAnnotations(prev => [ann, ...prev])}
+                />
               </div>
 
               {/* ANNOTATIONS */}
@@ -621,8 +632,17 @@ export default function VideoPage() {
                 </div>
                 <AnnotationPanel
                   videoId={id}
+                  currentUserId={currentUserId}
+                  annotations={annotations}
                   currentTimeS={replayTimeS}
                   onSeek={() => {}}
+                  onCreated={ann => setAnnotations(prev => [ann, ...prev])}
+                  onUpdated={ann => setAnnotations(prev => prev.map(a =>
+                    a.id === ann.id ? ann : { ...a, replies: a.replies.map(r => r.id === ann.id ? ann : r) }
+                  ))}
+                  onDeleted={id => setAnnotations(prev =>
+                    prev.filter(a => a.id !== id).map(a => ({ ...a, replies: a.replies.filter(r => r.id !== id) }))
+                  )}
                 />
               </div>
 

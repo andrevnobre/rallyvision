@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { VideoResult } from "@/lib/api";
-import { getStreamUrl } from "@/lib/api";
-import { courtToCanvas, detectOrientation, drawCourt, pixelToCanvas } from "@/lib/court";
+import type { VideoResult, Annotation } from "@/lib/api";
+import { createAnnotation, getStreamUrl } from "@/lib/api";
+import { canvasToCourt, courtToCanvas, detectOrientation, drawCourt, pixelToCanvas } from "@/lib/court";
+import { TAG_CFG, TAGS, type AnnotationTag } from "@/lib/annotation-tags";
 
 const TRAIL_FRAMES = 30;
 const SNAP_WINDOW = 4;
 const PLAYER_COLORS: Record<number, string> = { 0: "#3b82f6", 1: "#f97316", 2: "#a855f7", 3: "#22c55e" };
+const ANN_WINDOW_S = 3; // seconds either side for annotation fade
+const ANN_ALWAYS_R = 7;
+const ANN_RING_R = 13;
 
 interface FrameEntry {
   ball?: VideoResult["ball_positions"][number];
@@ -39,13 +43,36 @@ function closest(frames: number[], target: number, win: number): number | null {
   return best;
 }
 
-export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }: { videoId: string; result: VideoResult; onTimeUpdate?: (s: number) => void }) {
+interface PendingPin {
+  nx: number; ny: number;
+  pctX: number; pctY: number; // css % on canvas wrapper
+}
+
+interface Props {
+  videoId: string;
+  result: VideoResult;
+  onTimeUpdate?: (s: number) => void;
+  annotations?: Annotation[];
+  currentUserId?: string;
+  onAnnotationCreated?: (ann: Annotation) => void;
+}
+
+export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp, annotations, currentUserId, onAnnotationCreated }: Props) {
   const courtRef = useRef<HTMLCanvasElement>(null);
   const timelineRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const seekingRef = useRef(false);
   const [frame, setFrame] = useState(0);
   const [videoReady, setVideoReady] = useState(false);
+
+  // annotation mode
+  const [annotateMode, setAnnotateMode] = useState(false);
+  const [pendingPin, setPendingPin] = useState<PendingPin | null>(null);
+  const [pinContent, setPinContent] = useState("");
+  const [pinTag, setPinTag] = useState<AnnotationTag | "">("");
+  const [pinPrivate, setPinPrivate] = useState(false);
+  const [pinSubmitting, setPinSubmitting] = useState(false);
+  const [hoveredAnn, setHoveredAnn] = useState<{ ann: Annotation; pctX: number; pctY: number } | null>(null);
 
   const normalized = result.court_roi !== null && result.ball_positions.some((p) => p.nx !== undefined);
   const orientation = (result.camera_orientation as "lateral" | "fundo" | undefined) ?? detectOrientation(result.court_roi);
@@ -70,7 +97,7 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }:
     return PLAYER_COLORS[i] ?? "#6b7280";
   }
 
-  // sincronizar vídeo com slider
+  // sync video → slider
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !videoReady) return;
@@ -81,7 +108,6 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }:
     }
   }, [frame, result.fps, videoReady]);
 
-  // actualizar slider a partir do vídeo (play nativo)
   function onTimeUpdate() {
     if (seekingRef.current) return;
     const video = videoRef.current;
@@ -93,7 +119,7 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }:
 
   function onSeeked() { seekingRef.current = false; }
 
-  // desenhar quadra
+  // draw court + data + annotation pins
   useEffect(() => {
     const canvas = courtRef.current;
     if (!canvas) return;
@@ -104,89 +130,156 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }:
     ctx.fillRect(0, 0, W, H);
     drawCourt(ctx, W, H, orientation);
 
-    // trail da bola
+    // ball trail
     const trail = result.ball_positions
       .filter((p) => p.frame <= frame && p.frame > frame - TRAIL_FRAMES * 2)
       .slice(-TRAIL_FRAMES);
     trail.forEach((p, i) => {
       const alpha = ((i + 1) / trail.length) * 0.55;
       const [x, y] = pos(p.cx, p.cy, p.nx, p.ny, W, H);
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(250,204,21,${alpha})`;
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(250,204,21,${alpha})`; ctx.fill();
     });
 
     const cf = closest(sortedFrames, frame, SNAP_WINDOW);
     if (cf !== null) {
       const data = index.get(cf)!;
-
       if (data.ball) {
         const [x, y] = pos(data.ball.cx, data.ball.cy, data.ball.nx, data.ball.ny, W, H);
-        const isProxy = data.ball.proxy === true;
-
-        if (isProxy) {
-          // posição com proxy do jogador — alta confiança
+        if (data.ball.proxy) {
           const grd = ctx.createRadialGradient(x, y, 0, x, y, 18);
-          grd.addColorStop(0, "rgba(250,204,21,0.9)");
-          grd.addColorStop(1, "rgba(250,204,21,0)");
-          ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2);
-          ctx.fillStyle = grd; ctx.fill();
-          ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
-          ctx.fillStyle = "#facc15"; ctx.fill();
+          grd.addColorStop(0, "rgba(250,204,21,0.9)"); grd.addColorStop(1, "rgba(250,204,21,0)");
+          ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.fillStyle = grd; ctx.fill();
+          ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fillStyle = "#facc15"; ctx.fill();
         } else {
-          // posição sem proxy — profundidade incerta (câmera lateral)
           ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
-          ctx.strokeStyle = "rgba(250,204,21,0.6)";
-          ctx.setLineDash([3, 3]);
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          ctx.setLineDash([]);
+          ctx.strokeStyle = "rgba(250,204,21,0.6)"; ctx.setLineDash([3, 3]); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
         }
       }
-
       data.players.forEach((p) => {
         const [x, y] = pos(p.cx, p.cy, p.nx, p.ny, W, H);
         const color = playerColor(p.id);
-        ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2);
-        ctx.fillStyle = color; ctx.fill();
-        ctx.fillStyle = "white";
-        ctx.font = "bold 8px sans-serif";
-        ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText(p.id, x, y);
+        ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+        ctx.fillStyle = "white"; ctx.font = "bold 8px sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(p.id, x, y);
       });
     }
-  }, [frame, index, sortedFrames, normalized, result, frameW, frameH, topIds]);
 
-  // desenhar timeline
+    // annotation pins
+    const currentTimeS = frame / result.fps;
+    (annotations ?? []).forEach((ann) => {
+      if (ann.court_x === null || ann.court_y === null) return;
+      let alpha = 1.0;
+      if (ann.timestamp_s !== null) {
+        const dist = Math.abs(ann.timestamp_s - currentTimeS);
+        if (dist > ANN_WINDOW_S) return;
+        alpha = Math.max(0.15, 1 - dist / ANN_WINDOW_S);
+      }
+      const [x, y] = courtToCanvas(ann.court_x, ann.court_y, W, H, orientation);
+      const rgb = ann.tag ? (TAG_CFG[ann.tag as AnnotationTag]?.rgb ?? "226,232,240") : "226,232,240";
+      ctx.beginPath(); ctx.arc(x, y, ANN_RING_R, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(${rgb},${alpha * 0.7})`; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, ANN_ALWAYS_R, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${rgb},${alpha * 0.85})`; ctx.fill();
+      // author initials
+      ctx.fillStyle = `rgba(0,0,0,${alpha * 0.8})`;
+      ctx.font = "bold 6px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText((ann.author_name || ann.author_email).slice(0, 2).toUpperCase(), x, y);
+    });
+
+    // pending pin (white)
+    if (pendingPin) {
+      const [x, y] = courtToCanvas(pendingPin.nx, pendingPin.ny, W, H, orientation);
+      ctx.beginPath(); ctx.arc(x, y, ANN_RING_R, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, ANN_ALWAYS_R, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.fill();
+    }
+  }, [frame, index, sortedFrames, normalized, result, frameW, frameH, topIds, annotations, pendingPin, orientation]);
+
+  // draw timeline
   useEffect(() => {
     const canvas = timelineRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     const W = canvas.width, H = canvas.height;
-    const RALLY_H = Math.round(H * 0.4);  // 40% superior = rallies
-    const BALL_Y = RALLY_H + 2;           // 60% inferior = bola
+    const RALLY_H = Math.round(H * 0.4);
+    const BALL_Y = RALLY_H + 2;
 
     ctx.fillStyle = "#1f2937"; ctx.fillRect(0, 0, W, H);
-
-    // bandas de rally (verde, metade superior)
     (result.rallies ?? []).forEach((r) => {
       const x1 = Math.round((r.start_frame / result.total_frames) * W);
       const x2 = Math.round((r.end_frame / result.total_frames) * W);
-      ctx.fillStyle = "rgba(34, 197, 94, 0.4)";
-      ctx.fillRect(x1, 0, Math.max(x2 - x1, 2), RALLY_H);
+      ctx.fillStyle = "rgba(34,197,94,0.4)"; ctx.fillRect(x1, 0, Math.max(x2 - x1, 2), RALLY_H);
     });
-
-    // bola (amarelo, metade inferior)
     result.ball_positions.forEach(({ frame: f }) => {
       const x = Math.round((f / result.total_frames) * W);
       ctx.fillStyle = "#facc15"; ctx.fillRect(x, BALL_Y, 2, H - BALL_Y);
     });
-
-    // cursor
+    // annotation timestamps
+    (annotations ?? []).forEach((ann) => {
+      if (ann.timestamp_s === null) return;
+      const x = Math.round((ann.timestamp_s / result.duration_s) * W);
+      const rgb = ann.tag ? (TAG_CFG[ann.tag as AnnotationTag]?.rgb ?? "226,232,240") : "226,232,240";
+      ctx.fillStyle = `rgba(${rgb},0.9)`; ctx.fillRect(x - 1, 0, 2, H);
+    });
     const cx = Math.round((frame / result.total_frames) * W);
     ctx.fillStyle = "white"; ctx.fillRect(cx - 1, 0, 2, H);
-  }, [frame, result]);
+  }, [frame, result, annotations]);
+
+  // click on court canvas
+  function handleCourtClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (!annotateMode) return;
+    const canvas = courtRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const lx = (e.clientX - rect.left) * (640 / rect.width);
+    const ly = (e.clientY - rect.top) * (360 / rect.height);
+    const [nx, ny] = canvasToCourt(lx, ly, 640, 360, orientation);
+    const [pcx, pcy] = courtToCanvas(nx, ny, 100, 100, orientation);
+    setPendingPin({ nx, ny, pctX: pcx, pctY: pcy });
+    setPinContent(""); setPinTag(""); setPinPrivate(false);
+  }
+
+  // mouse move on court canvas → hover detection
+  function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+    if (annotateMode) return;
+    const canvas = courtRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const lx = (e.clientX - rect.left) * (640 / rect.width);
+    const ly = (e.clientY - rect.top) * (360 / rect.height);
+    const currentTimeS = frame / result.fps;
+
+    for (const ann of (annotations ?? [])) {
+      if (ann.court_x === null || ann.court_y === null) continue;
+      if (ann.timestamp_s !== null && Math.abs(ann.timestamp_s - currentTimeS) > ANN_WINDOW_S) continue;
+      const [ax, ay] = courtToCanvas(ann.court_x, ann.court_y, 640, 360, orientation);
+      if (Math.hypot(lx - ax, ly - ay) < 16) {
+        const pctX = (e.clientX - rect.left) / rect.width * 100;
+        const pctY = (e.clientY - rect.top) / rect.height * 100;
+        setHoveredAnn({ ann, pctX, pctY });
+        return;
+      }
+    }
+    setHoveredAnn(null);
+  }
+
+  async function handlePinSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pendingPin || !pinContent.trim()) return;
+    setPinSubmitting(true);
+    try {
+      const ann = await createAnnotation(videoId, {
+        content: pinContent.trim(),
+        court_x: pendingPin.nx,
+        court_y: pendingPin.ny,
+        timestamp_s: frame / result.fps,
+        tag: pinTag || null,
+        is_private: pinPrivate,
+      });
+      onAnnotationCreated?.(ann);
+      setPendingPin(null);
+    } catch { /* silencia */ } finally { setPinSubmitting(false); }
+  }
 
   const cf = closest(sortedFrames, frame, SNAP_WINDOW);
   const cur = cf !== null ? index.get(cf) : null;
@@ -206,9 +299,9 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }:
         </div>
       </div>
 
-      {/* painéis lado a lado */}
+      {/* side-by-side panels */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* vídeo real */}
+        {/* original video */}
         <div className="flex flex-col gap-1">
           <p className="text-xs text-gray-500">Vídeo original</p>
           <video
@@ -223,15 +316,116 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }:
           />
         </div>
 
-        {/* quadra bird's eye */}
+        {/* court bird's eye */}
         <div className="flex flex-col gap-1">
-          <p className="text-xs text-gray-500">Vista de topo {normalized ? "· normalizado" : "· píxeis brutos"}</p>
-          <canvas
-            ref={courtRef}
-            width={640}
-            height={360}
-            className="w-full rounded-lg border border-gray-800"
-          />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <p className="text-xs text-gray-500">Vista de topo {normalized ? "· normalizado" : "· píxeis brutos"}</p>
+            <button
+              onClick={() => { setAnnotateMode(m => !m); setPendingPin(null); }}
+              style={{
+                fontSize: 11, fontFamily: "var(--f-head)", fontWeight: 600,
+                padding: "3px 10px", borderRadius: 100, cursor: "pointer",
+                background: annotateMode ? "rgba(34,197,94,0.2)" : "var(--surface-2)",
+                border: `1px solid ${annotateMode ? "rgba(34,197,94,0.6)" : "var(--border-2)"}`,
+                color: annotateMode ? "rgb(134,239,172)" : "var(--text-dim)",
+                transition: "all 0.15s",
+              }}
+            >
+              {annotateMode ? "✕ Cancelar" : "+ Anotar quadra"}
+            </button>
+          </div>
+          {annotateMode && (
+            <p style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--f-head)" }}>
+              Clica na quadra para ancorar uma anotação neste instante ({timeSec}s)
+            </p>
+          )}
+          <div style={{ position: "relative" }}>
+            <canvas
+              ref={courtRef}
+              width={640}
+              height={360}
+              className="w-full rounded-lg border border-gray-800"
+              style={{ cursor: annotateMode ? "crosshair" : "default" }}
+              onClick={handleCourtClick}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={() => setHoveredAnn(null)}
+            />
+
+            {/* Pending pin popover */}
+            {pendingPin && (
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{
+                  position: "absolute",
+                  left: `${Math.min(pendingPin.pctX, 70)}%`,
+                  top: `${pendingPin.pctY > 60 ? pendingPin.pctY - 5 : pendingPin.pctY + 5}%`,
+                  transform: pendingPin.pctY > 60 ? "translate(-50%, -100%)" : "translate(-50%, 16px)",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border-2)",
+                  borderRadius: "var(--radius-lg)",
+                  padding: 14,
+                  width: 240,
+                  zIndex: 20,
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                }}
+              >
+                <form onSubmit={handlePinSubmit} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--f-head)", marginBottom: 2 }}>
+                    Anotação @ {timeSec}s
+                  </div>
+                  <textarea
+                    autoFocus
+                    placeholder="O que aconteceu aqui?"
+                    value={pinContent}
+                    onChange={e => setPinContent(e.target.value)}
+                    rows={2}
+                    style={{ width: "100%", resize: "none", background: "var(--bg)", border: "1px solid var(--border-2)", borderRadius: "var(--radius)", padding: "7px 10px", fontSize: 12, color: "var(--text)", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+                  />
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <select value={pinTag} onChange={e => setPinTag(e.target.value as AnnotationTag | "")}
+                      style={{ flex: 1, background: "var(--bg)", border: "1px solid var(--border-2)", borderRadius: "var(--radius)", padding: "4px 6px", fontSize: 11, color: "var(--text)", fontFamily: "var(--f-head)", outline: "none" }}>
+                      <option value="">Sem tag</option>
+                      {TAGS.map(t => <option key={t} value={t}>{TAG_CFG[t].label}</option>)}
+                    </select>
+                    <label style={{ fontSize: 11, color: "var(--text-dim)", display: "flex", alignItems: "center", gap: 4, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      <input type="checkbox" checked={pinPrivate} onChange={e => setPinPrivate(e.target.checked)} /> Privado
+                    </label>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    <button type="button" className="bv-btn bv-btn-ghost bv-btn-sm" onClick={() => setPendingPin(null)}>Cancelar</button>
+                    <button type="submit" className="bv-btn bv-btn-green bv-btn-sm" disabled={pinSubmitting || !pinContent.trim()}>
+                      {pinSubmitting ? "…" : "Guardar"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Hover tooltip */}
+            {hoveredAnn && !annotateMode && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${Math.min(hoveredAnn.pctX, 75)}%`,
+                  top: `${hoveredAnn.pctY > 60 ? hoveredAnn.pctY - 2 : hoveredAnn.pctY + 2}%`,
+                  transform: hoveredAnn.pctY > 60 ? "translate(-50%, -100%)" : "translate(-50%, 12px)",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border-2)",
+                  borderRadius: "var(--radius)",
+                  padding: "8px 12px",
+                  fontSize: 12, maxWidth: 200,
+                  zIndex: 10, pointerEvents: "none",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                }}
+              >
+                <div style={{ fontFamily: "var(--f-head)", fontSize: 11, color: "var(--text-dim)", marginBottom: 3 }}>
+                  {hoveredAnn.ann.author_name || hoveredAnn.ann.author_email}
+                  {hoveredAnn.ann.timestamp_s !== null && ` · ${(Math.floor(hoveredAnn.ann.timestamp_s / 60))}:${String(Math.round(hoveredAnn.ann.timestamp_s % 60)).padStart(2, "0")}`}
+                </div>
+                <div style={{ color: "var(--text-muted)", lineHeight: 1.4 }}>{hoveredAnn.ann.content}</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -251,12 +445,13 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }:
         <span className="flex gap-3">
           <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-green-600/60" />rally</span>
           <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-yellow-400" />bola</span>
+          <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-white/40" />anotação</span>
           <span>· clica para saltar</span>
         </span>
         <span>{result.duration_s}s</span>
       </div>
 
-      {/* chips de rally — clicar salta para o início do rally */}
+      {/* rally chips */}
       {result.rallies && result.rallies.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {result.rallies.map((r) => {
@@ -270,15 +465,12 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }:
                   if (video && videoReady) video.currentTime = r.start_frame / result.fps;
                 }}
                 style={{
-                  padding: "3px 10px",
-                  fontSize: 12,
-                  fontFamily: "var(--f-head)",
+                  padding: "3px 10px", fontSize: 12, fontFamily: "var(--f-head)",
                   borderRadius: 999,
                   border: `1px solid ${active ? "rgb(34,197,94)" : "var(--border-2)"}`,
                   background: active ? "rgba(34,197,94,0.15)" : "var(--surface-2)",
                   color: active ? "rgb(134,239,172)" : "var(--text-dim)",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
+                  cursor: "pointer", transition: "all 0.15s",
                 }}
               >
                 Rally {r.rally_id} · {r.duration_s}s
@@ -299,7 +491,7 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }:
         {cf !== null && cf !== frame && <span className="text-gray-600"> (deteção mais próxima: frame {cf})</span>}
       </div>
 
-      {/* legenda */}
+      {/* legend */}
       <div className="flex flex-wrap gap-4 text-xs text-gray-500">
         {topIds.map((id, i) => (
           <span key={id} className="flex items-center gap-1.5">
