@@ -329,14 +329,7 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp, a
 
         {/* ── VIDEO ── */}
         <div className="flex flex-col gap-1">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <p className="text-xs text-gray-500">Vídeo original</p>
-            {annotateMode && (
-              <span style={{ fontSize: 11, fontFamily: "var(--f-head)", color: "rgb(134,239,172)" }}>
-                Clica no vídeo para ancorar
-              </span>
-            )}
-          </div>
+          <p className="text-xs text-gray-500">Vídeo original</p>
           {/* wrapper with overlay */}
           <div style={{ position: "relative" }}>
             <video
@@ -427,28 +420,35 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp, a
 
         {/* ── COURT CANVAS ── */}
         <div className="flex flex-col gap-1">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <p className="text-xs text-gray-500">Vista de topo {normalized ? "· normalizado" : "· píxeis brutos"}</p>
+          <p className="text-xs text-gray-500">Vista de topo {normalized ? "· normalizado" : "· píxeis brutos"}</p>
+          <div style={{ position: "relative" }}>
+            {/* botão Anotar — overlay no canto superior direito da canvas */}
             <button
               onClick={() => { setAnnotateMode(m => !m); setPendingPin(null); }}
               style={{
+                position: "absolute", top: 8, right: 8, zIndex: 10,
                 fontSize: 11, fontFamily: "var(--f-head)", fontWeight: 600,
                 padding: "3px 10px", borderRadius: 100, cursor: "pointer",
-                background: annotateMode ? "rgba(34,197,94,0.2)" : "var(--surface-2)",
-                border: `1px solid ${annotateMode ? "rgba(34,197,94,0.6)" : "var(--border-2)"}`,
-                color: annotateMode ? "rgb(134,239,172)" : "var(--text-dim)",
+                background: annotateMode ? "rgba(34,197,94,0.25)" : "rgba(15,36,23,0.75)",
+                border: `1px solid ${annotateMode ? "rgba(34,197,94,0.7)" : "rgba(255,255,255,0.15)"}`,
+                color: annotateMode ? "rgb(134,239,172)" : "rgba(255,255,255,0.6)",
+                backdropFilter: "blur(4px)",
                 transition: "all 0.15s",
               }}
             >
-              {annotateMode ? "✕ Sair do modo anotação" : "+ Anotar"}
+              {annotateMode ? "✕ Sair" : "+ Anotar"}
             </button>
-          </div>
-          {annotateMode && (
-            <p style={{ fontSize: 11, color: "var(--text-dim)", fontFamily: "var(--f-head)" }}>
-              Clica no vídeo ou na quadra para ancorar uma anotação @ {timeSec}s
-            </p>
-          )}
-          <div style={{ position: "relative" }}>
+            {/* label de instrução no modo anotação */}
+            {annotateMode && (
+              <div style={{
+                position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)",
+                fontSize: 11, color: "rgb(134,239,172)", fontFamily: "var(--f-head)",
+                background: "rgba(15,36,23,0.8)", padding: "3px 10px", borderRadius: 100,
+                backdropFilter: "blur(4px)", zIndex: 10, whiteSpace: "nowrap",
+              }}>
+                Clica no vídeo ou na quadra · {timeSec}s
+              </div>
+            )}
             <canvas
               ref={courtRef}
               width={640} height={360}
