@@ -35,8 +35,53 @@ async function apiFetch(url: string, init?: RequestInit): Promise<Response> {
 export interface AuthUser {
   id: string;
   email: string;
+  name: string | null;
   plan: string;
   is_admin: boolean;
+}
+
+export interface ProfileData {
+  id: string;
+  email: string;
+  name: string | null;
+  plan: string;
+  is_admin: boolean;
+  created_at: string;
+}
+
+export interface VideoHistoryItem {
+  id: string;
+  filename: string;
+  created_at: string;
+  rally_count: number | null;
+  avg_rally_duration_s: number | null;
+  ball_detection_pct: number | null;
+  duration_s: number | null;
+  is_participant: boolean;
+}
+
+export interface CoachPlayerItem {
+  player_id: string;
+  player_email: string;
+  player_name: string | null;
+  linked_at: string;
+  video_count: number;
+}
+
+export interface PlayerStats {
+  player_id: string;
+  player_email: string;
+  player_name: string | null;
+  linked_at: string;
+  total_videos: number;
+  avg_rally_count: number | null;
+  avg_ball_detection_pct: number | null;
+}
+
+export interface ParticipantItem {
+  user_id: string;
+  email: string;
+  name: string | null;
 }
 
 export async function register(email: string, password: string): Promise<string> {
@@ -215,6 +260,98 @@ export async function processVideo(
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await res.text());
+}
+
+// --- profile ---
+
+export async function getProfile(): Promise<ProfileData> {
+  const res = await apiFetch(`${API}/profile`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function updateProfile(body: {
+  name?: string | null;
+  current_password?: string;
+  new_password?: string;
+}): Promise<ProfileData> {
+  const res = await apiFetch(`${API}/profile`, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getProfileHistory(): Promise<VideoHistoryItem[]> {
+  const res = await apiFetch(`${API}/profile/history`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// --- coach ---
+
+export async function listCoachPlayers(): Promise<CoachPlayerItem[]> {
+  const res = await apiFetch(`${API}/coach/players`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function addCoachPlayer(email: string): Promise<CoachPlayerItem> {
+  const res = await apiFetch(`${API}/coach/players`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function removeCoachPlayer(playerId: string): Promise<void> {
+  const res = await apiFetch(`${API}/coach/players/${playerId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok && res.status !== 204) throw new Error(await res.text());
+}
+
+export async function getCoachPlayer(playerId: string): Promise<PlayerStats> {
+  const res = await apiFetch(`${API}/coach/players/${playerId}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getCoachPlayerVideos(playerId: string): Promise<VideoHistoryItem[]> {
+  const res = await apiFetch(`${API}/coach/players/${playerId}/videos`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// --- participantes em vídeos ---
+
+export async function addVideoParticipants(videoId: string, emails: string[]): Promise<ParticipantItem[]> {
+  const res = await apiFetch(`${API}/videos/${videoId}/participants`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ emails }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function removeVideoParticipant(videoId: string, userId: string): Promise<void> {
+  const res = await apiFetch(`${API}/videos/${videoId}/participants/${userId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok && res.status !== 204) throw new Error(await res.text());
+}
+
+export async function listVideoParticipants(videoId: string): Promise<ParticipantItem[]> {
+  const res = await apiFetch(`${API}/videos/${videoId}/participants`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 // --- admin ---
