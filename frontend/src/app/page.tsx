@@ -241,6 +241,9 @@ export default function Home() {
                       <div style={{ fontFamily: "var(--f-head)", fontSize: 15, fontWeight: 600, letterSpacing: "-0.01em", marginBottom: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.filename}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 13, color: "var(--text-dim)" }}>
                         <span>{formatDate(v.created_at)}</span>
+                        {v.is_participant && (
+                          <span className="bv-badge" style={{ background: "var(--blue-bg)", color: "#93c5fd", border: "1px solid #1e3a8a", fontSize: 11 }}>Coach</span>
+                        )}
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>

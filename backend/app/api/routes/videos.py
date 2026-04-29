@@ -54,12 +54,31 @@ def list_videos(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return (
+    own = (
         db.query(Video)
         .filter(Video.user_id == current_user.id)
         .order_by(Video.created_at.desc())
         .all()
     )
+    own_ids = {v.id for v in own}
+
+    participant = (
+        db.query(Video)
+        .join(VideoParticipant, VideoParticipant.video_id == Video.id)
+        .filter(VideoParticipant.user_id == current_user.id)
+        .order_by(Video.created_at.desc())
+        .all()
+    )
+
+    result = [VideoStatusResponse.model_validate(v) for v in own]
+    for v in participant:
+        if v.id not in own_ids:
+            r = VideoStatusResponse.model_validate(v)
+            r.is_participant = True
+            result.append(r)
+
+    result.sort(key=lambda v: v.created_at, reverse=True)
+    return result
 
 
 @router.post("/upload", response_model=VideoUploadResponse, status_code=201)

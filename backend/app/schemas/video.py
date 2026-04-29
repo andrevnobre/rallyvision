@@ -20,6 +20,7 @@ class VideoStatusResponse(BaseModel):
     error: str | None = None
     result: str | None = None
     share_token: str | None = None
+    is_participant: bool = False
 
     model_config = {"from_attributes": True}
 

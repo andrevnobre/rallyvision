@@ -120,6 +120,7 @@ export interface VideoStatus {
   error: string | null;
   result: string | null;
   share_token: string | null;
+  is_participant: boolean;
 }
 
 export interface Rally {
