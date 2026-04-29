@@ -188,6 +188,25 @@ def delete_video(
     db.commit()
 
 
+# ── Result patch ─────────────────────────────────────────────────────────────
+
+@router.put("/videos/{video_id}/result", status_code=200)
+def update_video_result(
+    video_id: str,
+    body: dict,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Substitui o JSON de resultado de um vídeo (para correcções manuais)."""
+    import json as _json
+    video = db.get(Video, video_id)
+    if not video:
+        raise HTTPException(404, "Vídeo não encontrado")
+    video.result = _json.dumps(body)
+    db.commit()
+    return {"ok": True, "video_id": video_id}
+
+
 # ── Metrics ──────────────────────────────────────────────────────────────────
 
 @router.get("/metrics", response_model=AdminMetricsResponse)
