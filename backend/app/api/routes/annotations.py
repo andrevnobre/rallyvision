@@ -39,6 +39,8 @@ def _build_response(ann: VideoAnnotation, replies: list[VideoAnnotation] | None 
         timestamp_s=ann.timestamp_s,
         court_x=ann.court_x,
         court_y=ann.court_y,
+        frame_x=ann.frame_x,
+        frame_y=ann.frame_y,
         tag=ann.tag,
         is_private=ann.is_private,
         created_at=ann.created_at,
