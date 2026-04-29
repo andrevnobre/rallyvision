@@ -19,6 +19,7 @@ class TokenResponse(BaseModel):
 class UserResponse(BaseModel):
     id: str
     email: str
+    name: str | None = None
     plan: str
     is_admin: bool
 

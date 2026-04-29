@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.models.video import Video
+from app.models.video_participant import VideoParticipant
+from app.schemas.coach import AddParticipantsRequest, ParticipantItem
 from app.schemas.video import ProcessRequest, SharedVideoResponse, VideoStatusResponse, VideoUploadResponse
 from app.services.auth import get_current_user
 from app.services.storage import get_local_path, get_presigned_url, get_thumbnail_jpeg, stream_and_store, upload_thumbnail
@@ -21,6 +23,24 @@ MAX_SIZE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GB
 
 
 def _own_or_404(video_id: str, current_user: User, db: Session) -> Video:
+    """Devolve o vídeo se o utilizador for dono ou participante."""
+    video = db.get(Video, video_id)
+    if not video:
+        raise HTTPException(404, "Vídeo não encontrado")
+    if video.user_id == current_user.id:
+        return video
+    is_participant = (
+        db.query(VideoParticipant)
+        .filter(VideoParticipant.video_id == video_id, VideoParticipant.user_id == current_user.id)
+        .first()
+    ) is not None
+    if not is_participant:
+        raise HTTPException(403, "Sem permissão")
+    return video
+
+
+def _owner_or_403(video_id: str, current_user: User, db: Session) -> Video:
+    """Devolve o vídeo apenas se o utilizador for o dono (para operações destrutivas)."""
     video = db.get(Video, video_id)
     if not video:
         raise HTTPException(404, "Vídeo não encontrado")
@@ -92,7 +112,7 @@ def start_processing(
 ):
     from app.config import settings
 
-    video = _own_or_404(video_id, current_user, db)
+    video = _owner_or_403(video_id, current_user, db)
     if video.status != "pending_roi":
         raise HTTPException(409, f"Estado inválido para iniciar processamento: {video.status}")
 
@@ -249,8 +269,7 @@ def export_result(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Exporta o JSON de resultado completo do pipeline para análise offline."""
-    video = _own_or_404(video_id, current_user, db)
+    video = _owner_or_403(video_id, current_user, db)
     if not video.result:
         raise HTTPException(404, "Resultado não disponível — vídeo ainda não analisado")
     stem = Path(video.filename).stem
@@ -267,7 +286,7 @@ def create_share(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    video = _own_or_404(video_id, current_user, db)
+    video = _owner_or_403(video_id, current_user, db)
     if video.status != "done":
         raise HTTPException(409, "Só é possível partilhar vídeos já analisados")
     if not video.share_token:
@@ -283,7 +302,7 @@ def revoke_share(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    video = _own_or_404(video_id, current_user, db)
+    video = _owner_or_403(video_id, current_user, db)
     video.share_token = None
     db.commit()
     db.refresh(video)
@@ -305,3 +324,58 @@ def get_status(
     db: Session = Depends(get_db),
 ):
     return _own_or_404(video_id, current_user, db)
+
+
+@router.post("/{video_id}/participants", response_model=list[ParticipantItem], status_code=201)
+def add_participants(
+    video_id: str,
+    body: AddParticipantsRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    video = _owner_or_403(video_id, current_user, db)
+    existing_ids = {p.user_id for p in video.participants}
+    added = []
+    for email in body.emails:
+        if email == current_user.email:
+            continue
+        user = db.query(User).filter(User.email == email).first()
+        if not user or user.id in existing_ids:
+            continue
+        db.add(VideoParticipant(video_id=video.id, user_id=user.id))
+        existing_ids.add(user.id)
+        added.append(ParticipantItem(user_id=user.id, email=user.email, name=user.name))
+    db.commit()
+    return added
+
+
+@router.delete("/{video_id}/participants/{user_id}", status_code=204)
+def remove_participant(
+    video_id: str,
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _owner_or_403(video_id, current_user, db)
+    row = (
+        db.query(VideoParticipant)
+        .filter(VideoParticipant.video_id == video_id, VideoParticipant.user_id == user_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(404, "Participante não encontrado neste vídeo")
+    db.delete(row)
+    db.commit()
+
+
+@router.get("/{video_id}/participants", response_model=list[ParticipantItem])
+def list_participants(
+    video_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    video = _own_or_404(video_id, current_user, db)
+    return [
+        ParticipantItem(user_id=p.user.id, email=p.user.email, name=p.user.name)
+        for p in video.participants
+    ]

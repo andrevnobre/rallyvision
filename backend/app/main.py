@@ -4,11 +4,13 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.database import Base, engine
-from app.models import User, Video  # noqa: F401 — garante que create_all vê todos os modelos
+from app.models import User, Video, CoachPlayer, VideoParticipant  # noqa: F401 — garante que create_all vê todos os modelos
 from app.api.routes import videos
 from app.api.routes.admin import router as admin_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.coach import router as coach_router
 from app.api.routes.internal import router as internal_router
+from app.api.routes.profile import router as profile_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -21,6 +23,9 @@ with engine.connect() as _conn:
     ))
     _conn.execute(text(
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT FALSE"
+    ))
+    _conn.execute(text(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255) NULL"
     ))
     _conn.execute(text("UPDATE users SET plan = 'pro' WHERE plan = 'free'"))
     if settings.admin_email:
@@ -45,6 +50,8 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(profile_router)
+app.include_router(coach_router)
 app.include_router(videos.router)
 app.include_router(internal_router)
 app.include_router(admin_router)

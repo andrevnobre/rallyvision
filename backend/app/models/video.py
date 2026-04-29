@@ -25,3 +25,4 @@ class Video(Base):
     result: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON
     share_token: Mapped[str | None] = mapped_column(String(36), nullable=True, unique=True, index=True)
     owner: Mapped["User | None"] = relationship("User", back_populates="videos")  # type: ignore[name-defined]
+    participants: Mapped[list["VideoParticipant"]] = relationship("VideoParticipant", back_populates="video", cascade="all, delete-orphan")  # type: ignore[name-defined]
