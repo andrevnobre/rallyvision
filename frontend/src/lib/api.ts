@@ -468,6 +468,8 @@ export interface Annotation {
   timestamp_s: number | null;
   court_x: number | null;
   court_y: number | null;
+  frame_x: number | null;
+  frame_y: number | null;
   tag: AnnotationTag | null;
   is_private: boolean;
   created_at: string;
@@ -480,6 +482,8 @@ export interface CreateAnnotationBody {
   timestamp_s?: number | null;
   court_x?: number | null;
   court_y?: number | null;
+  frame_x?: number | null;
+  frame_y?: number | null;
   tag?: AnnotationTag | null;
   is_private?: boolean;
   parent_id?: string | null;

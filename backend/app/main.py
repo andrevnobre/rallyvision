@@ -32,6 +32,8 @@ with engine.connect() as _conn:
     _conn.execute(text(
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255) NULL"
     ))
+    _conn.execute(text("ALTER TABLE video_annotations ADD COLUMN IF NOT EXISTS frame_x FLOAT NULL"))
+    _conn.execute(text("ALTER TABLE video_annotations ADD COLUMN IF NOT EXISTS frame_y FLOAT NULL"))
     _conn.execute(text("UPDATE users SET plan = 'pro' WHERE plan = 'free'"))
     if settings.admin_email:
         _conn.execute(

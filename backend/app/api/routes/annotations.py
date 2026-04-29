@@ -124,6 +124,8 @@ def create_annotation(
         timestamp_s=body.timestamp_s,
         court_x=body.court_x,
         court_y=body.court_y,
+        frame_x=body.frame_x,
+        frame_y=body.frame_y,
         tag=body.tag,
         is_private=body.is_private,
     )

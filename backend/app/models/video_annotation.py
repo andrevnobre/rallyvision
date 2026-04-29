@@ -18,6 +18,8 @@ class VideoAnnotation(Base):
     timestamp_s: Mapped[float | None] = mapped_column(Float, nullable=True)
     court_x: Mapped[float | None] = mapped_column(Float, nullable=True)
     court_y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    frame_x: Mapped[float | None] = mapped_column(Float, nullable=True)   # normalizado 0-1 pela largura do frame
+    frame_y: Mapped[float | None] = mapped_column(Float, nullable=True)   # normalizado 0-1 pela altura do frame
     tag: Mapped[str | None] = mapped_column(String(20), nullable=True)  # tecnica|posicionamento|tatico|mental
     is_private: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

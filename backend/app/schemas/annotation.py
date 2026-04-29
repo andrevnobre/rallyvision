@@ -10,6 +10,8 @@ class CreateAnnotationRequest(BaseModel):
     timestamp_s: float | None = None
     court_x: float | None = None
     court_y: float | None = None
+    frame_x: float | None = None
+    frame_y: float | None = None
     tag: str | None = None
     is_private: bool = False
     parent_id: str | None = None
@@ -32,6 +34,8 @@ class AnnotationResponse(BaseModel):
     timestamp_s: float | None
     court_x: float | None
     court_y: float | None
+    frame_x: float | None
+    frame_y: float | None
     tag: str | None
     is_private: bool
     created_at: datetime
