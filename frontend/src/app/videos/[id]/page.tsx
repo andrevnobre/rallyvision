@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, type VideoStatus, type VideoResult } from "@/lib/api";
+import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, listVideoParticipants, addVideoParticipants, removeVideoParticipant, type VideoStatus, type VideoResult, type ParticipantItem } from "@/lib/api";
 import { exportToPdf } from "@/lib/export-pdf";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtROISelector, type ROIResult } from "@/components/CourtROISelector";
@@ -36,6 +36,10 @@ export default function VideoPage() {
   const [shareCopied, setShareCopied] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [participants, setParticipants] = useState<ParticipantItem[]>([]);
+  const [participantEmail, setParticipantEmail] = useState("");
+  const [participantAdding, setParticipantAdding] = useState(false);
+  const [participantErr, setParticipantErr] = useState<string | null>(null);
 
   function logout() { removeToken(); router.push("/auth/login"); }
 
@@ -76,6 +80,7 @@ export default function VideoPage() {
       }
     }
 
+    listVideoParticipants(id).then(setParticipants).catch(() => {});
     pollStatus();
     progressTimer = setInterval(pollProgress, 2000);
 
@@ -120,6 +125,34 @@ export default function VideoPage() {
         }
       } catch { /* silencia erros de rede no polling */ }
     }, 4000);
+  }
+
+  async function handleAddParticipant(e: React.FormEvent) {
+    e.preventDefault();
+    const email = participantEmail.trim();
+    if (!email) return;
+    setParticipantAdding(true);
+    setParticipantErr(null);
+    try {
+      const added = await addVideoParticipants(id, [email]);
+      if (added.length === 0) {
+        setParticipantErr("Email não encontrado ou já adicionado.");
+      } else {
+        setParticipants(prev => [...prev, ...added]);
+        setParticipantEmail("");
+      }
+    } catch (e) {
+      setParticipantErr(String(e).replace(/^Error: /, ""));
+    } finally {
+      setParticipantAdding(false);
+    }
+  }
+
+  async function handleRemoveParticipant(userId: string) {
+    try {
+      await removeVideoParticipant(id, userId);
+      setParticipants(prev => prev.filter(p => p.user_id !== userId));
+    } catch { /* silencia */ }
   }
 
   async function handleShare() {
@@ -209,6 +242,62 @@ export default function VideoPage() {
                     ))}
                   </div>
                 </div>
+                {/* Participantes */}
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border-2)", borderRadius: "var(--radius-lg)", padding: 24 }}>
+                  <h3 style={{ fontFamily: "var(--f-head)", fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Participantes</h3>
+                  <p style={{ fontSize: 13, color: "var(--text-dim)", marginBottom: 14, lineHeight: 1.5 }}>
+                    Adiciona os alunos presentes neste vídeo — o vídeo ficará visível no perfil deles.
+                  </p>
+
+                  <form onSubmit={handleAddParticipant} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <input
+                      className="bv-form-input"
+                      type="email"
+                      placeholder="email@exemplo.com"
+                      value={participantEmail}
+                      onChange={e => { setParticipantEmail(e.target.value); setParticipantErr(null); }}
+                      style={{ flex: 1, fontSize: 13, padding: "8px 12px" }}
+                    />
+                    <button
+                      type="submit"
+                      className="bv-btn bv-btn-green bv-btn-sm"
+                      disabled={participantAdding || !participantEmail.trim()}
+                      style={{ flexShrink: 0 }}
+                    >
+                      {participantAdding ? "…" : "Adicionar"}
+                    </button>
+                  </form>
+
+                  {participantErr && (
+                    <p style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10 }}>{participantErr}</p>
+                  )}
+
+                  {participants.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {participants.map(p => (
+                        <div key={p.user_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "var(--bg)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--green-bg)", border: "1px solid var(--green-dim)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--f-head)", fontWeight: 700, fontSize: 11, color: "var(--green-l)", flexShrink: 0 }}>
+                            {(p.name || p.email).slice(0, 2).toUpperCase()}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {p.name && <div style={{ fontFamily: "var(--f-head)", fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>{p.name}</div>}
+                            <div style={{ fontSize: 12, color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</div>
+                          </div>
+                          <button
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-dim)", padding: 4, borderRadius: 4, flexShrink: 0, lineHeight: 0 }}
+                            onClick={() => handleRemoveParticipant(p.user_id)}
+                            title="Remover"
+                            onMouseEnter={e => (e.currentTarget.style.color = "#fca5a5")}
+                            onMouseLeave={e => (e.currentTarget.style.color = "var(--text-dim)")}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {error && <p style={{ fontSize: 13, color: "#fca5a5", padding: "10px 14px", background: "var(--red-bg)", borderRadius: "var(--radius)", border: "1px solid #7f1d1d" }}>{error}</p>}
               </div>
             </div>
