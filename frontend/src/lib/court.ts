@@ -13,7 +13,7 @@
 
 export type CameraOrientation = "lateral" | "fundo";
 
-const PADS: Record<CameraOrientation, { x: number; y: number }> = {
+export const PADS: Record<CameraOrientation, { x: number; y: number }> = {
   lateral: { x: 0.08, y: 0.12 },
   fundo:   { x: 0.37, y: 0.04 },
 };
@@ -40,6 +40,19 @@ export function courtToCanvas(
   const px = W * padX;
   const py = H * padY;
   return [px + nx * (W - px * 2), py + ny * (H - py * 2)];
+}
+
+export function canvasToCourt(
+  px: number,
+  py: number,
+  W: number,
+  H: number,
+  orientation: CameraOrientation = "lateral",
+): [number, number] {
+  const { x: padX, y: padY } = PADS[orientation];
+  const nx = (px / W - padX) / (1 - 2 * padX);
+  const ny = (py / H - padY) / (1 - 2 * padY);
+  return [Math.max(0, Math.min(1, nx)), Math.max(0, Math.min(1, ny))];
 }
 
 export function pixelToCanvas(

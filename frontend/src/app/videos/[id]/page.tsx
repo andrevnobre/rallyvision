@@ -9,6 +9,7 @@ import { exportToPdf } from "@/lib/export-pdf";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtROISelector, type ROIResult } from "@/components/CourtROISelector";
 import { CourtReplay } from "@/components/CourtReplay";
+import { AnnotationPanel } from "@/components/AnnotationPanel";
 
 const STATUS_CFG: Record<VideoStatus["status"], { label: string; cls: string }> = {
   pending_roi:  { label: "Aguarda ROI",  cls: "bv-badge bv-badge-roi" },
@@ -42,6 +43,7 @@ export default function VideoPage() {
   const [participantErr, setParticipantErr] = useState<string | null>(null);
   const [coachPlayers, setCoachPlayers] = useState<CoachPlayerItem[]>([]);
   const [quickAdding, setQuickAdding] = useState<string | null>(null);
+  const [replayTimeS, setReplayTimeS] = useState<number | undefined>(undefined);
 
   function logout() { removeToken(); router.push("/auth/login"); }
 
@@ -609,7 +611,19 @@ export default function VideoPage() {
                     Concluído
                   </span>
                 </div>
-                <CourtReplay videoId={id} result={result} />
+                <CourtReplay videoId={id} result={result} onTimeUpdate={setReplayTimeS} />
+              </div>
+
+              {/* ANNOTATIONS */}
+              <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden", marginTop: 24 }}>
+                <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}>
+                  <div style={{ fontFamily: "var(--f-head)", fontSize: 14, fontWeight: 600 }}>Anotações</div>
+                </div>
+                <AnnotationPanel
+                  videoId={id}
+                  currentTimeS={replayTimeS}
+                  onSeek={() => {}}
+                />
               </div>
 
               <p style={{ fontSize: 12, color: "var(--text-dim)", textAlign: "right", marginTop: 16 }}>

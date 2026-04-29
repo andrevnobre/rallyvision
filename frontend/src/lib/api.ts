@@ -452,3 +452,75 @@ export async function adminDeleteVideo(id: string): Promise<void> {
   });
   if (!res.ok && res.status !== 204) throw new Error(await res.text());
 }
+
+// --- anotações ---
+
+export type AnnotationTag = "tecnica" | "posicionamento" | "tatico" | "mental";
+
+export interface Annotation {
+  id: string;
+  video_id: string;
+  author_id: string;
+  author_email: string;
+  author_name: string | null;
+  parent_id: string | null;
+  content: string;
+  timestamp_s: number | null;
+  court_x: number | null;
+  court_y: number | null;
+  tag: AnnotationTag | null;
+  is_private: boolean;
+  created_at: string;
+  updated_at: string;
+  replies: Annotation[];
+}
+
+export interface CreateAnnotationBody {
+  content: string;
+  timestamp_s?: number | null;
+  court_x?: number | null;
+  court_y?: number | null;
+  tag?: AnnotationTag | null;
+  is_private?: boolean;
+  parent_id?: string | null;
+}
+
+export interface UpdateAnnotationBody {
+  content?: string;
+  tag?: AnnotationTag | null;
+  is_private?: boolean;
+}
+
+export async function getAnnotations(videoId: string): Promise<Annotation[]> {
+  const res = await apiFetch(`${API}/videos/${videoId}/annotations`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function createAnnotation(videoId: string, body: CreateAnnotationBody): Promise<Annotation> {
+  const res = await apiFetch(`${API}/videos/${videoId}/annotations`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function updateAnnotation(videoId: string, annId: string, body: UpdateAnnotationBody): Promise<Annotation> {
+  const res = await apiFetch(`${API}/videos/${videoId}/annotations/${annId}`, {
+    method: "PATCH",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function deleteAnnotation(videoId: string, annId: string): Promise<void> {
+  const res = await apiFetch(`${API}/videos/${videoId}/annotations/${annId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  });
+  if (!res.ok && res.status !== 204) throw new Error(await res.text());
+}

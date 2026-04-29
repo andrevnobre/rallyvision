@@ -39,7 +39,7 @@ function closest(frames: number[], target: number, win: number): number | null {
   return best;
 }
 
-export function CourtReplay({ videoId, result }: { videoId: string; result: VideoResult }) {
+export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp }: { videoId: string; result: VideoResult; onTimeUpdate?: (s: number) => void }) {
   const courtRef = useRef<HTMLCanvasElement>(null);
   const timelineRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -85,7 +85,10 @@ export function CourtReplay({ videoId, result }: { videoId: string; result: Vide
   function onTimeUpdate() {
     if (seekingRef.current) return;
     const video = videoRef.current;
-    if (video) setFrame(Math.round(video.currentTime * result.fps));
+    if (video) {
+      setFrame(Math.round(video.currentTime * result.fps));
+      onTimeUpdateProp?.(video.currentTime);
+    }
   }
 
   function onSeeked() { seekingRef.current = false; }
