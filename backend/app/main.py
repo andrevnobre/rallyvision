@@ -15,6 +15,10 @@ from app.api.routes.profile import router as profile_router
 Base.metadata.create_all(bind=engine)
 
 with engine.connect() as _conn:
+    _conn.execute(text("ALTER TABLE videos ADD COLUMN IF NOT EXISTS court_roi TEXT NULL"))
+    _conn.execute(text("ALTER TABLE videos ADD COLUMN IF NOT EXISTS net_points TEXT NULL"))
+    _conn.execute(text("ALTER TABLE videos ADD COLUMN IF NOT EXISTS error TEXT NULL"))
+    _conn.execute(text("ALTER TABLE videos ADD COLUMN IF NOT EXISTS result TEXT NULL"))
     _conn.execute(text(
         "ALTER TABLE videos ADD COLUMN IF NOT EXISTS share_token VARCHAR(36) NULL UNIQUE"
     ))
