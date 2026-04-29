@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getSharedVideo, getStreamUrl, type VideoResult } from "@/lib/api";
+import { exportToPdf } from "@/lib/export-pdf";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtReplay } from "@/components/CourtReplay";
 
@@ -20,6 +21,17 @@ export default function SharedPage() {
   const [createdAt, setCreatedAt] = useState("");
   const [result, setResult] = useState<VideoResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  async function handleExportPdf() {
+    if (!result) return;
+    setPdfLoading(true);
+    try {
+      await exportToPdf(filename, createdAt, result);
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   useEffect(() => {
     getSharedVideo(token)
@@ -75,6 +87,17 @@ export default function SharedPage() {
                 Analisado em {new Date(createdAt).toLocaleDateString("pt-PT")} · {formatDuration(result.duration_s)} de duração
               </div>
             </div>
+            <button
+              className="bv-btn bv-btn-ghost bv-btn-sm"
+              onClick={handleExportPdf}
+              disabled={pdfLoading}
+            >
+              {pdfLoading
+                ? <div className="bv-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+              }
+              {pdfLoading ? "A gerar…" : "Exportar PDF"}
+            </button>
           </div>
 
           {/* STAT CARDS — linha 1 */}

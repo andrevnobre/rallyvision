@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, type VideoStatus, type VideoResult } from "@/lib/api";
+import { exportToPdf } from "@/lib/export-pdf";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtROISelector, type ROIResult } from "@/components/CourtROISelector";
 import { CourtReplay } from "@/components/CourtReplay";
@@ -34,8 +35,19 @@ export default function VideoPage() {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   function logout() { removeToken(); router.push("/auth/login"); }
+
+  async function handleExportPdf() {
+    if (!video || !result) return;
+    setPdfLoading(true);
+    try {
+      await exportToPdf(video.filename, video.created_at, result);
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   useEffect(() => {
     let statusTimer: ReturnType<typeof setTimeout>;
@@ -286,9 +298,16 @@ export default function VideoPage() {
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <button className="bv-btn bv-btn-ghost bv-btn-sm" title="Exportar PDF (em breve)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                    Exportar PDF
+                  <button
+                    className="bv-btn bv-btn-ghost bv-btn-sm"
+                    onClick={handleExportPdf}
+                    disabled={pdfLoading}
+                  >
+                    {pdfLoading
+                      ? <div className="bv-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                    }
+                    {pdfLoading ? "A gerar…" : "Exportar PDF"}
                   </button>
                   <button
                     className="bv-btn bv-btn-sm"
