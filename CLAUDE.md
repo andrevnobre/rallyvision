@@ -8,11 +8,11 @@ BT Vision is a beach tennis video analytics platform. Players/coaches upload mat
 
 ## Current Status
 
-ML spike **complete**. Backend, frontend, local infra and production deployment (Lightsail) are all functional. Admin backoffice implemented.
+ML spike **complete**. Backend, frontend, local infra and production deployment (Lightsail) are all functional. Admin backoffice implemented. PDF export of analysis reports shipped (2026-04-29, commit `2dab833`).
 
 - `ml/spike/` — validated pipeline (`combined_spike.py`): ball + player detection
 - `backend/` — FastAPI + Celery worker + SQLAlchemy (upload, processing pipeline, status polling, admin routes)
-- `frontend/` — Next.js 15: upload page + results page with heatmaps + `/admin` backoffice
+- `frontend/` — Next.js 15: upload page + results page with heatmaps + `/admin` backoffice + PDF export (`src/lib/export-pdf.ts`, jsPDF lazy-loaded)
 - `infra/` — Docker Compose local (API + worker + PostgreSQL + Redis + frontend)
 
 Run locally: `cd infra && docker compose up -d` → API at :8000, frontend at :3000
@@ -75,9 +75,21 @@ Frontend (Next.js)  →  Backend API (FastAPI + Celery)  →  ML Worker (GPU)
 - Homography for court normalization (map pixel positions to real-world court coordinates)
 - MVP success criteria: ball detection ≥80% on well-lit video, processing ≤3× video duration
 
+## Production Deploy (Lightsail)
+
+Server: `ubuntu@54.220.157.151`
+
+```bash
+ssh ubuntu@54.220.157.151
+cd /opt/rallyvision
+sudo git pull          # ⚠️ requires sudo — .git dir is owned by root
+cd infra && sudo docker compose up -d --build
+```
+
+> **Note:** `git pull` must run with `sudo` because `/opt/rallyvision/.git` is owned by root. Running it as `ubuntu` will fail with a permission error.
+
 ## Open Questions
 
-- TrackNet vs. YOLOv8 final decision (pending spike results)
 - GPU hosting: EC2 spot vs. Replicate/RunPod
 - Camera hardware pack: number and positioning per court (to validate at pilot club)
 - Co-founder equity split

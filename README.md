@@ -18,7 +18,7 @@ BT Vision processa o vídeo da partida automaticamente usando visão computacion
 - Mapa de calor de posicionamento (bola + jogadores)
 - Estatísticas de rallies e duração média
 - Detecção de tacadas (saque, smash, defesa, lob) — em desenvolvimento
-- Relatórios PDF exportáveis por partida — em desenvolvimento
+- Relatórios PDF exportáveis por partida
 
 Sem operador. Sem entrada manual. Só o vídeo.
 
@@ -116,4 +116,5 @@ Em modo local (sem credenciais AWS), os vídeos e thumbnails são guardados em d
 | Autenticação JWT | ✅ Produção |
 | Pagamentos (Stripe) | 🔲 Planeado |
 | Deteção de pontos e erros | 🔲 Em desenvolvimento |
-| Relatórios PDF | 🔲 Planeado |
+| Exportação PDF do relatório de análise | ✅ Produção |
+| Relatórios PDF 3 níveis (Básico/Padrão/Avançado) | 🔲 Fase 2 |

@@ -5,12 +5,13 @@
 **Objetivo:** Produto funcional com self-serve individual + clube piloto operacional em Portugal.
 
 ### Entregas
-- [ ] Pipeline de processamento de vídeo (upload → análise → resultado)
-- [ ] Deteção de quadra, jogadores e bola por frame
-- [ ] Heatmap de posicionamento + contagem de rallies
+- [x] Pipeline de processamento de vídeo (upload → análise → resultado)
+- [x] Deteção de quadra, jogadores e bola por frame
+- [x] Heatmap de posicionamento + contagem de rallies
+- [x] Autenticação de utilizadores
+- [x] Exportação de relatório de análise em PDF (versão básica — jsPDF) ← *versão 3-níveis fica para Fase 2*
 - [ ] Perfil pessoal com histórico de partidas (canal individual)
 - [ ] Dashboard básico para coach (vista simplificada de alunos)
-- [ ] Autenticação de utilizadores
 - [ ] Pagamento Stripe (EUR): Free €0, Pro €29/mês, Club €99/mês
 - [ ] Clube piloto (Espinho): câmeras instaladas, upload manual diário
 

@@ -102,6 +102,7 @@ Dois canais a validar em paralelo:
 - [x] Ecrã de upload com acompanhamento de progresso
 - [x] Seletor de ROI guiado (4 cantos com diagrama + marcação manual da rede para homografia 6-pontos)
 - [x] Ecrã de resultado de análise (stats + heatmap bola + heatmap jogadores + replay interativo)
+- [x] Exportação de relatório de análise em PDF (jsPDF lazy-loaded) — `frontend/src/lib/export-pdf.ts`
 - [ ] Perfil pessoal e histórico de evolução entre partidas
 - [ ] Dashboard do coach (vista de múltiplos alunos — simplificada no MVP)
 - [ ] Ecrã de planos e pagamento (EUR)
