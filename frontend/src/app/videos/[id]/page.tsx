@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, listVideoParticipants, addVideoParticipants, removeVideoParticipant, type VideoStatus, type VideoResult, type ParticipantItem } from "@/lib/api";
+import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, listVideoParticipants, addVideoParticipants, removeVideoParticipant, listCoachPlayers, type VideoStatus, type VideoResult, type ParticipantItem, type CoachPlayerItem } from "@/lib/api";
 import { exportToPdf } from "@/lib/export-pdf";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtROISelector, type ROIResult } from "@/components/CourtROISelector";
@@ -40,6 +40,8 @@ export default function VideoPage() {
   const [participantEmail, setParticipantEmail] = useState("");
   const [participantAdding, setParticipantAdding] = useState(false);
   const [participantErr, setParticipantErr] = useState<string | null>(null);
+  const [coachPlayers, setCoachPlayers] = useState<CoachPlayerItem[]>([]);
+  const [quickAdding, setQuickAdding] = useState<string | null>(null);
 
   function logout() { removeToken(); router.push("/auth/login"); }
 
@@ -81,6 +83,7 @@ export default function VideoPage() {
     }
 
     listVideoParticipants(id).then(setParticipants).catch(() => {});
+    listCoachPlayers().then(setCoachPlayers).catch(() => {});
     pollStatus();
     progressTimer = setInterval(pollProgress, 2000);
 
@@ -145,6 +148,19 @@ export default function VideoPage() {
       setParticipantErr(String(e).replace(/^Error: /, ""));
     } finally {
       setParticipantAdding(false);
+    }
+  }
+
+  async function handleQuickAdd(player: CoachPlayerItem) {
+    setQuickAdding(player.player_id);
+    setParticipantErr(null);
+    try {
+      const added = await addVideoParticipants(id, [player.player_email]);
+      if (added.length > 0) setParticipants(prev => [...prev, ...added]);
+    } catch (e) {
+      setParticipantErr(String(e).replace(/^Error: /, ""));
+    } finally {
+      setQuickAdding(null);
     }
   }
 
@@ -249,11 +265,58 @@ export default function VideoPage() {
                     Adiciona os alunos presentes neste vídeo — o vídeo ficará visível no perfil deles.
                   </p>
 
+                  {/* Selecção rápida pelos alunos do coach */}
+                  {coachPlayers.length > 0 && (() => {
+                    const participantIds = new Set(participants.map(p => p.user_id));
+                    return (
+                      <div style={{ marginBottom: 14 }}>
+                        <div style={{ fontSize: 12, fontFamily: "var(--f-head)", color: "var(--text-dim)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                          Os meus alunos
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {coachPlayers.map(p => {
+                            const added = participantIds.has(p.player_id);
+                            const loading = quickAdding === p.player_id;
+                            return (
+                              <button
+                                key={p.player_id}
+                                disabled={added || loading}
+                                onClick={() => !added && handleQuickAdd(p)}
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 6,
+                                  padding: "5px 10px", borderRadius: 100,
+                                  fontSize: 12, fontFamily: "var(--f-head)", fontWeight: 500,
+                                  cursor: added ? "default" : "pointer",
+                                  transition: "all 0.15s",
+                                  background: added ? "var(--green-bg)" : "var(--surface-2)",
+                                  border: `1px solid ${added ? "var(--green-dim)" : "var(--border-2)"}`,
+                                  color: added ? "var(--green-l)" : "var(--text-muted)",
+                                }}
+                                onMouseEnter={e => { if (!added && !loading) { e.currentTarget.style.borderColor = "var(--surface-3)"; e.currentTarget.style.color = "var(--text)"; } }}
+                                onMouseLeave={e => { if (!added && !loading) { e.currentTarget.style.borderColor = "var(--border-2)"; e.currentTarget.style.color = "var(--text-muted)"; } }}
+                              >
+                                {added ? (
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><polyline points="20 6 9 17 4 12" /></svg>
+                                ) : loading ? (
+                                  <div className="bv-spinner" style={{ width: 11, height: 11, borderWidth: 1.5 }} />
+                                ) : (
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                                )}
+                                {p.player_name || p.player_email}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Adicionar por email (outros utilizadores) */}
                   <form onSubmit={handleAddParticipant} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                     <input
                       className="bv-form-input"
                       type="email"
-                      placeholder="email@exemplo.com"
+                      placeholder="outro email…"
                       value={participantEmail}
                       onChange={e => { setParticipantEmail(e.target.value); setParticipantErr(null); }}
                       style={{ flex: 1, fontSize: 13, padding: "8px 12px" }}
