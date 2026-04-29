@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import type { VideoResult } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import type { Shot, VideoResult } from "@/lib/api";
 import { type CameraOrientation, courtToCanvas, detectOrientation, drawCourt, pixelToCanvas } from "@/lib/court";
 
 const COURT_W = 1920;
@@ -13,6 +13,140 @@ function topPlayers(positions: VideoResult["player_positions"], n = 4) {
     .sort((a, b) => b[1].length - a[1].length)
     .slice(0, n);
 }
+
+function drawArrow(
+  ctx: CanvasRenderingContext2D,
+  x1: number, y1: number,
+  x2: number, y2: number,
+  color: string,
+  alpha: number,
+) {
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const headLen = 9;
+  const headAngle = Math.PI / 5;
+  const hex = Math.round(alpha * 255).toString(16).padStart(2, "0");
+
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.strokeStyle = color + hex;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(
+    x2 - headLen * Math.cos(angle - headAngle),
+    y2 - headLen * Math.sin(angle - headAngle),
+  );
+  ctx.lineTo(
+    x2 - headLen * Math.cos(angle + headAngle),
+    y2 - headLen * Math.sin(angle + headAngle),
+  );
+  ctx.closePath();
+  ctx.fillStyle = color + hex;
+  ctx.fill();
+}
+
+// ── ShotHeatmap ──────────────────────────────────────────────────────────────
+
+export function ShotHeatmap({
+  shots,
+  playerPositions,
+  courtRoi,
+  cameraOrientation,
+}: {
+  shots: Shot[];
+  playerPositions: VideoResult["player_positions"];
+  courtRoi: VideoResult["court_roi"];
+  cameraOrientation?: CameraOrientation;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+
+  const players = topPlayers(playerPositions);
+  const colorMap = Object.fromEntries(
+    players.map(([id], i) => [id, PLAYER_COLORS[i % PLAYER_COLORS.length]]),
+  );
+  const orientation: CameraOrientation = cameraOrientation ?? detectOrientation(courtRoi);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    const W = canvas.width;
+    const H = canvas.height;
+
+    ctx.fillStyle = "#0f2417";
+    ctx.fillRect(0, 0, W, H);
+    drawCourt(ctx, W, H, orientation);
+
+    const visible = selectedPlayer
+      ? shots.filter((s) => s.player_id === selectedPlayer)
+      : shots;
+
+    visible.forEach((shot) => {
+      const color = shot.player_id ? (colorMap[shot.player_id] ?? "#9ca3af") : "#9ca3af";
+      const [x1, y1] = courtToCanvas(shot.nx_start, shot.ny_start, W, H, orientation);
+      const [x2, y2] = courtToCanvas(shot.nx_end, shot.ny_end, W, H, orientation);
+      drawArrow(ctx, x1, y1, x2, y2, color, 0.65);
+    });
+  }, [shots, colorMap, orientation, selectedPlayer]);
+
+  const btnBase =
+    "px-2.5 py-1 rounded text-xs font-medium transition-colors border";
+  const btnActive = "border-transparent text-white";
+  const btnInactive = "border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500";
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <h3 className="text-sm font-medium text-gray-400">Trajectórias de shots</h3>
+        <span className="text-xs text-gray-600">· {shots.length} shots</span>
+        <span className="text-xs text-gray-600">· {orientation}</span>
+
+        {/* Player filter */}
+        <div className="ml-auto flex gap-1.5 flex-wrap">
+          <button
+            className={`${btnBase} ${selectedPlayer === null ? btnActive + " bg-gray-600" : btnInactive}`}
+            onClick={() => setSelectedPlayer(null)}
+          >
+            Todos
+          </button>
+          {players.map(([id], i) => {
+            const count = shots.filter((s) => s.player_id === id).length;
+            const color = PLAYER_COLORS[i % PLAYER_COLORS.length];
+            const active = selectedPlayer === id;
+            return (
+              <button
+                key={id}
+                className={`${btnBase} ${active ? btnActive : btnInactive}`}
+                style={active ? { backgroundColor: color + "33", borderColor: color, color } : {}}
+                onClick={() => setSelectedPlayer(active ? null : id)}
+              >
+                <span
+                  className="inline-block w-2 h-2 rounded-full mr-1.5"
+                  style={{ background: color }}
+                />
+                J{i + 1}
+                <span className="ml-1 text-gray-500 font-normal">({count})</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <canvas
+        ref={canvasRef}
+        width={640}
+        height={360}
+        className="rounded-lg w-full border border-gray-800"
+      />
+    </div>
+  );
+}
+
+// ── BallHeatmap ───────────────────────────────────────────────────────────────
 
 export function BallHeatmap({
   positions,
@@ -86,6 +220,8 @@ export function BallHeatmap({
     </div>
   );
 }
+
+// ── PlayerHeatmap ─────────────────────────────────────────────────────────────
 
 export function PlayerHeatmap({
   positions,

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getVideo, getVideoProgress, getVideoResult, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, listVideoParticipants, addVideoParticipants, removeVideoParticipant, listCoachPlayers, getAnnotations, getMe, type VideoStatus, type VideoResult, type ParticipantItem, type CoachPlayerItem, type Annotation } from "@/lib/api";
 import { exportToPdf } from "@/lib/export-pdf";
-import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
+import { ShotHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtROISelector, type ROIResult } from "@/components/CourtROISelector";
 import { CourtReplay } from "@/components/CourtReplay";
 import { AnnotationPanel } from "@/components/AnnotationPanel";
@@ -586,7 +586,7 @@ export default function VideoPage() {
                     </div>
                   </div>
                   <div style={{ padding: 16 }}>
-                    <BallHeatmap positions={result.ball_positions} courtRoi={result.court_roi} cameraOrientation={result.camera_orientation} />
+                    <ShotHeatmap shots={result.shots ?? []} playerPositions={result.player_positions} courtRoi={result.court_roi} cameraOrientation={result.camera_orientation} />
                   </div>
                 </div>
                 <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
