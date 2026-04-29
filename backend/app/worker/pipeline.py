@@ -430,6 +430,11 @@ def run_pipeline(
 
     logger.info(f"{len(rallies)} rallies detetados | duração média {avg_rally_s}s")
 
+    from app.services.ball_trajectory import clean_ball_positions, extract_shots
+    clean_bp = clean_ball_positions(stats["ball_positions"], fps)
+    shots = extract_shots(clean_bp, stats["player_positions"], fps, camera_orientation or "lateral")
+    logger.info(f"{len(shots)} shots extraídos após limpeza de trajetória")
+
     return {
         "fps": stats["fps"],
         "total_frames": stats["total_frames"],
@@ -447,6 +452,7 @@ def run_pipeline(
         "rally_count": len(rallies),
         "avg_rally_duration_s": avg_rally_s,
         "rallies": rallies,
-        "ball_positions": stats["ball_positions"],
+        "ball_positions": clean_bp,
+        "shots": shots,
         "player_positions": stats["player_positions"],
     }

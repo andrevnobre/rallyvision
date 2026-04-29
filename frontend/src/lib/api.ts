@@ -131,6 +131,17 @@ export interface Rally {
   ball_detections: number;
 }
 
+export interface Shot {
+  frame_start: number;
+  frame_end: number;
+  nx_start: number;
+  ny_start: number;
+  nx_end: number;
+  ny_end: number;
+  duration_s: number;
+  player_id?: string;
+}
+
 export interface VideoResult {
   fps: number;
   total_frames: number;
@@ -152,8 +163,10 @@ export interface VideoResult {
     frame: number; cx: number; cy: number; conf: number;
     nx?: number; ny?: number;
     proxy?: boolean; proxy_player_id?: string; proxy_dist_px?: number;
+    _interpolated?: boolean;
   }[];
   player_positions: Record<string, { frame: number; cx: number; cy: number; nx?: number; ny?: number }[]>;
+  shots?: Shot[];
 }
 
 export async function listVideos(): Promise<VideoStatus[]> {
@@ -207,6 +220,12 @@ export async function getVideoProgress(id: string): Promise<{ progress: number; 
 
 export async function getVideo(id: string): Promise<VideoStatus> {
   const res = await apiFetch(`${API}/videos/${id}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getVideoResult(id: string): Promise<VideoResult> {
+  const res = await apiFetch(`${API}/videos/${id}/result`, { headers: authHeaders() });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

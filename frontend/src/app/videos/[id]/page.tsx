@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getVideo, getVideoProgress, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, listVideoParticipants, addVideoParticipants, removeVideoParticipant, listCoachPlayers, getAnnotations, getMe, type VideoStatus, type VideoResult, type ParticipantItem, type CoachPlayerItem, type Annotation } from "@/lib/api";
+import { getVideo, getVideoProgress, getVideoResult, getThumbnailUrl, processVideo, createShareLink, revokeShareLink, removeToken, listVideoParticipants, addVideoParticipants, removeVideoParticipant, listCoachPlayers, getAnnotations, getMe, type VideoStatus, type VideoResult, type ParticipantItem, type CoachPlayerItem, type Annotation } from "@/lib/api";
 import { exportToPdf } from "@/lib/export-pdf";
 import { BallHeatmap, PlayerHeatmap } from "@/components/Heatmap";
 import { CourtROISelector, type ROIResult } from "@/components/CourtROISelector";
@@ -66,10 +66,10 @@ export default function VideoPage() {
     async function pollStatus() {
       const v = await getVideo(id);
       setVideo(v);
-      if (v.status === "done" && v.result) {
+      if (v.status === "done") {
         clearInterval(progressTimer);
         setProcessingPct(100);
-        setResult(JSON.parse(v.result));
+        getVideoResult(id).then(setResult).catch(() => {});
       } else if (v.status === "pending" || v.status === "processing") {
         statusTimer = setTimeout(pollStatus, 4000);
       } else {
@@ -124,8 +124,8 @@ export default function VideoPage() {
       try {
         const updated = await getVideo(id);
         setVideo(updated);
-        if (updated.status === "done" && updated.result) {
-          setResult(JSON.parse(updated.result));
+        if (updated.status === "done") {
+          getVideoResult(id).then(setResult).catch(() => {});
           clearInterval(statusInterval);
           clearInterval(progressInterval);
         } else if (updated.status === "failed") {

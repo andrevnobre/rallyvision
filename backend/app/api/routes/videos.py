@@ -282,6 +282,24 @@ def get_progress(video_id: str, db: Session = Depends(get_db)):
     return {"progress": int(val) if val else 0, "status": video.status}
 
 
+@router.get("/{video_id}/result")
+def get_result(
+    video_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Resultado processado: posições limpas + shots extraídos."""
+    import json as _json
+    from app.services.ball_trajectory import enrich_result
+    video = _owner_or_403(video_id, current_user, db)
+    if not video.result:
+        raise HTTPException(404, "Resultado não disponível")
+    result = _json.loads(video.result)
+    if "shots" not in result:
+        result = enrich_result(result)
+    return result
+
+
 @router.get("/{video_id}/export")
 def export_result(
     video_id: str,
