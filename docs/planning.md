@@ -86,8 +86,10 @@ Dois canais a validar em paralelo:
 - [x] Endpoint de upload de vídeo (multipart, validação de formato/tamanho, streaming S3 multipart)
 - [x] Endpoints de análise (submeter, estado, resultado)
 - [x] Geração de thumbnail via PyAV (suporta MP4 não-faststart via presigned URL)
-- [ ] Endpoints de perfil individual (histórico de partidas, evolução)
-- [ ] Endpoints de dashboard coach (lista de alunos, partidas)
+- [x] Endpoints de perfil individual (histórico de partidas, evolução) — `GET/PATCH /profile`, `GET /profile/history`
+- [x] Endpoints de dashboard coach (lista de alunos, partidas) — `GET/POST/DELETE /coach/players`, `GET /coach/players/{id}/videos`
+- [x] Participantes em vídeos — `POST/DELETE/GET /videos/{id}/participants`
+- [x] Sistema de anotações — `GET/POST/PATCH/DELETE /videos/{id}/annotations` com tags, privacidade, respostas e coordenadas espaciais (quadra + frame)
 - [ ] Sistema de planos e limites (Free: 2 vídeos/mês, Pro: 8 vídeos/mês, Club: 20 vídeos/mês)
 - [ ] Integração Stripe EUR (checkout, webhooks, gestão de subscrição)
 
@@ -103,8 +105,9 @@ Dois canais a validar em paralelo:
 - [x] Seletor de ROI guiado (4 cantos com diagrama + marcação manual da rede para homografia 6-pontos)
 - [x] Ecrã de resultado de análise (stats + heatmap bola + heatmap jogadores + replay interativo)
 - [x] Exportação de relatório de análise em PDF (jsPDF lazy-loaded) — `frontend/src/lib/export-pdf.ts`
-- [ ] Perfil pessoal e histórico de evolução entre partidas
-- [ ] Dashboard do coach (vista de múltiplos alunos — simplificada no MVP)
+- [x] Perfil pessoal e histórico de vídeos — `/profile`
+- [x] Dashboard do coach (lista de alunos, página de detalhe, vídeos por aluno) — `/coach`
+- [x] Anotações interativas no replay — clique na quadra ou no vídeo para ancorar anotações com timestamp, tag, coordenadas espaciais; pins com fade durante playback; painel de lista com respostas e edição
 - [ ] Ecrã de planos e pagamento (EUR)
 
 ---

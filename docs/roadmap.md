@@ -10,8 +10,11 @@
 - [x] Heatmap de posicionamento + contagem de rallies
 - [x] Autenticação de utilizadores
 - [x] Exportação de relatório de análise em PDF (versão básica — jsPDF) ← *versão 3-níveis fica para Fase 2*
-- [ ] Perfil pessoal com histórico de partidas (canal individual)
-- [ ] Dashboard básico para coach (vista simplificada de alunos)
+- [x] Perfil pessoal com histórico de partidas (canal individual)
+- [x] Dashboard básico para coach (lista de alunos, detalhe por aluno, vídeos partilhados)
+- [x] Partilha de vídeos: link público sem conta + participantes registados
+- [x] Backoffice administrativo (métricas, gestão de utilizadores/planos, retry de jobs)
+- [x] Sistema de anotações interativas: clique na quadra ou no vídeo, pins com fade no replay, tags, privacidade, respostas
 - [ ] Pagamento Stripe (EUR): Free €0, Pro €29/mês, Club €99/mês
 - [ ] Clube piloto (Espinho): câmeras instaladas, upload manual diário
 

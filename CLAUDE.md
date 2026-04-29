@@ -8,12 +8,25 @@ BT Vision is a beach tennis video analytics platform. Players/coaches upload mat
 
 ## Current Status
 
-ML spike **complete**. Backend, frontend, local infra and production deployment (Lightsail) are all functional. Admin backoffice implemented. PDF export of analysis reports shipped (2026-04-29, commit `2dab833`).
+MVP feature-complete (sem pagamentos). Em produção no Lightsail. Última entrega: sistema de anotações interativas (2026-04-29).
 
-- `ml/spike/` — validated pipeline (`combined_spike.py`): ball + player detection
-- `backend/` — FastAPI + Celery worker + SQLAlchemy (upload, processing pipeline, status polling, admin routes)
-- `frontend/` — Next.js 15: upload page + results page with heatmaps + `/admin` backoffice + PDF export (`src/lib/export-pdf.ts`, jsPDF lazy-loaded)
+- `ml/spike/` — pipeline validado (`combined_spike.py`): deteção de bola + jogadores
+- `backend/` — FastAPI + Celery + SQLAlchemy: upload, processamento, auth, perfil, coach, participantes, anotações, admin, partilha por link
+- `frontend/` — Next.js 15: dashboard, upload, replay interativo, heatmaps, anotações, perfil, coach, /admin, PDF export
 - `infra/` — Docker Compose local (API + worker + PostgreSQL + Redis + frontend)
+
+Funcionalidades entregues:
+- Upload + processamento de vídeo (GPU EC2 spot ou worker local Celery)
+- Heatmaps de bola e jogadores + replay frame-a-frame sincronizado com o vídeo
+- Extração de rallies com chips clicáveis na timeline
+- Anotações interativas: clique na quadra ou no vídeo → pin georreferenciado com timestamp; fade durante playback; tags; privacidade; respostas; painel de lista
+- Perfil individual com histórico de vídeos (`/profile`)
+- Dashboard do coach com lista de alunos e vídeos (`/coach`)
+- Participantes em vídeos (adicionar alunos ao vídeo para partilha)
+- Partilha por link público (sem conta) + revogação
+- Exportação de relatório em PDF (jsPDF lazy-loaded) — `src/lib/export-pdf.ts`
+- Backoffice admin (`/admin`): métricas, gestão de utilizadores/planos, retry de jobs
+- Tour de onboarding por perfil com animações Canvas
 
 Run locally: `cd infra && docker compose up -d` → API at :8000, frontend at :3000
 
