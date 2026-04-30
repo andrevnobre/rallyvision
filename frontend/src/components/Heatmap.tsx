@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Shot, VideoResult } from "@/lib/api";
 import { type CameraOrientation, courtToCanvas, detectOrientation, drawCourt, pixelToCanvas } from "@/lib/court";
 
@@ -221,6 +221,56 @@ export function BallHeatmap({
   );
 }
 
+// ── Player grouping by court quadrant ────────────────────────────────────────
+
+type PlayerFrame = VideoResult["player_positions"][string][number];
+
+interface PlayerGroup {
+  frames: PlayerFrame[];
+  label: string;
+  color: string;
+}
+
+// Minimum frames a track needs to count as a real player (filters noise/passers-by)
+const MIN_TRACK_FRAMES = 15;
+
+function groupPlayersByQuadrant(
+  positions: VideoResult["player_positions"],
+  orientation: CameraOrientation,
+): PlayerGroup[] {
+  // fundo camera: net axis = ny (net at ny=0.5); lateral = ny splits partners
+  // lateral camera: net axis = nx (net at nx=0.5); lateral = ny splits partners
+  const netIsNy = orientation === "fundo";
+
+  const groups: PlayerFrame[][] = [[], [], [], []];
+  // index:  0 = teamA-left, 1 = teamA-right, 2 = teamB-left, 3 = teamB-right
+  // teamA = near side (fundo for fundo cam / left for lateral cam)
+
+  for (const frames of Object.values(positions)) {
+    const validNx = frames.map(f => f.nx).filter((v): v is number => v !== undefined && v >= 0 && v <= 1);
+    const validNy = frames.map(f => f.ny).filter((v): v is number => v !== undefined && v >= 0 && v <= 1);
+    if (validNx.length < MIN_TRACK_FRAMES) continue;
+
+    const meanNx = validNx.reduce((a, b) => a + b, 0) / validNx.length;
+    const meanNy = validNy.reduce((a, b) => a + b, 0) / validNy.length;
+
+    const netVal  = netIsNy ? meanNy : meanNx;  // which team
+    const sideVal = netIsNy ? meanNx : meanNy;  // which partner within team
+
+    const teamIdx = netVal >= 0.5 ? 0 : 2;
+    const sideIdx = sideVal >= 0.5 ? 1 : 0;
+    groups[teamIdx + sideIdx].push(...frames);
+  }
+
+  const LABELS = netIsNy
+    ? ["Fundo ←", "Fundo →", "Saque ←", "Saque →"]
+    : ["Esq. ↑",  "Esq. ↓",  "Dir. ↑",  "Dir. ↓"];
+
+  return groups
+    .map((frames, i) => ({ frames, label: LABELS[i], color: PLAYER_COLORS[i] }))
+    .filter(g => g.frames.length > 0);
+}
+
 // ── PlayerHeatmap ─────────────────────────────────────────────────────────────
 
 export function PlayerHeatmap({
@@ -233,11 +283,24 @@ export function PlayerHeatmap({
   cameraOrientation?: CameraOrientation;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const players = topPlayers(positions);
+  const orientation: CameraOrientation = cameraOrientation ?? detectOrientation(courtRoi);
+
   const normalized =
     courtRoi !== null &&
-    players.some(([, frames]) => frames.some((f) => f.nx !== undefined));
-  const orientation: CameraOrientation = cameraOrientation ?? detectOrientation(courtRoi);
+    Object.values(positions).some((frames) => frames.some((f) => f.nx !== undefined));
+
+  // Use quadrant grouping for normalised data; fall back to top-4 for raw pixels
+  const drawGroups = useMemo<PlayerGroup[]>(() => {
+    if (normalized) {
+      const grouped = groupPlayersByQuadrant(positions, orientation);
+      if (grouped.length > 0) return grouped;
+    }
+    return topPlayers(positions).map(([, frames], i) => ({
+      frames,
+      label: `Jogador ${i + 1}`,
+      color: PLAYER_COLORS[i % PLAYER_COLORS.length],
+    }));
+  }, [positions, normalized, orientation]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -250,8 +313,7 @@ export function PlayerHeatmap({
     ctx.fillRect(0, 0, W, H);
     drawCourt(ctx, W, H, orientation);
 
-    players.forEach(([, frames], i) => {
-      const color = PLAYER_COLORS[i % PLAYER_COLORS.length];
+    drawGroups.forEach(({ frames, color }) => {
       frames.forEach(({ cx, cy, nx, ny }) => {
         const [x, y] = normalized && nx !== undefined
           ? courtToCanvas(nx, ny!, W, H, orientation)
@@ -271,9 +333,9 @@ export function PlayerHeatmap({
         ctx.fill();
       });
     });
-  }, [players, normalized, orientation]);
+  }, [drawGroups, normalized, orientation]);
 
-  const totalPoints = players.reduce((s, [, f]) => s + f.length, 0);
+  const totalPoints = drawGroups.reduce((s, g) => s + g.frames.length, 0);
 
   return (
     <div>
@@ -291,14 +353,14 @@ export function PlayerHeatmap({
         height={360}
         className="rounded-lg w-full border border-gray-800"
       />
-      <div className="flex gap-4 mt-2">
-        {players.map(([id], i) => (
-          <span key={id} className="text-xs flex items-center gap-1.5">
+      <div className="flex gap-4 mt-2 flex-wrap">
+        {drawGroups.map((g) => (
+          <span key={g.label} className="text-xs flex items-center gap-1.5">
             <span
               className="inline-block w-3 h-3 rounded-full"
-              style={{ background: PLAYER_COLORS[i] }}
+              style={{ background: g.color }}
             />
-            Jogador {i + 1} ({positions[id]?.length ?? 0} pts)
+            {g.label} ({g.frames.length} pts)
           </span>
         ))}
       </div>
