@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { VideoResult, Annotation } from "@/lib/api";
+import type { Shot, VideoResult, Annotation } from "@/lib/api";
 import { createAnnotation, getStreamUrl } from "@/lib/api";
 import { canvasToCourt, courtToCanvas, detectOrientation, drawCourt, pixelToCanvas } from "@/lib/court";
 import { TAG_CFG, TAGS, type AnnotationTag } from "@/lib/annotation-tags";
 
-const TRAIL_FRAMES = 30;
 const SNAP_WINDOW = 4;
 const PLAYER_COLORS: Record<number, string> = { 0: "#3b82f6", 1: "#f97316", 2: "#a855f7", 3: "#22c55e" };
 const ANN_WINDOW_S = 3;
@@ -121,32 +120,59 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp, a
     ctx.fillRect(0, 0, W, H);
     drawCourt(ctx, W, H, orientation);
 
-    const trail = result.ball_positions
-      .filter((p) => p.frame <= frame && p.frame > frame - TRAIL_FRAMES * 2)
-      .slice(-TRAIL_FRAMES);
-    trail.forEach((p, i) => {
-      const alpha = ((i + 1) / trail.length) * 0.55;
-      const [x, y] = pos(p.cx, p.cy, p.nx, p.ny, W, H);
-      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(250,204,21,${alpha})`; ctx.fill();
-    });
+    // ── shot arrow + interpolated ball ──
+    const shots: Shot[] = result.shots ?? [];
+    const currentShot = shots.find((s) => s.frame_start <= frame && s.frame_end >= frame) ?? null;
 
-    const cf = closest(sortedFrames, frame, SNAP_WINDOW);
-    if (cf !== null) {
-      const data = index.get(cf)!;
-      if (data.ball) {
-        const [x, y] = pos(data.ball.cx, data.ball.cy, data.ball.nx, data.ball.ny, W, H);
-        if (data.ball.proxy) {
-          const grd = ctx.createRadialGradient(x, y, 0, x, y, 18);
-          grd.addColorStop(0, "rgba(250,204,21,0.9)"); grd.addColorStop(1, "rgba(250,204,21,0)");
-          ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.fillStyle = grd; ctx.fill();
-          ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fillStyle = "#facc15"; ctx.fill();
-        } else {
+    if (currentShot && normalized) {
+      const [x1, y1] = courtToCanvas(currentShot.nx_start, currentShot.ny_start, W, H, orientation);
+      const [x2, y2] = courtToCanvas(currentShot.nx_end, currentShot.ny_end, W, H, orientation);
+
+      // arrow shaft
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      const headLen = 11;
+      const headAngle = Math.PI / 5;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+      ctx.strokeStyle = "rgba(250,204,21,0.45)"; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]);
+
+      // arrowhead
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - headLen * Math.cos(angle - headAngle), y2 - headLen * Math.sin(angle - headAngle));
+      ctx.lineTo(x2 - headLen * Math.cos(angle + headAngle), y2 - headLen * Math.sin(angle + headAngle));
+      ctx.closePath();
+      ctx.fillStyle = "rgba(250,204,21,0.55)"; ctx.fill();
+
+      // origin dot
+      ctx.beginPath(); ctx.arc(x1, y1, 4, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(250,204,21,0.35)"; ctx.fill();
+
+      // interpolated ball position along the arrow
+      const t = Math.max(0, Math.min(1, (frame - currentShot.frame_start) / Math.max(1, currentShot.frame_end - currentShot.frame_start)));
+      const nx = currentShot.nx_start + t * (currentShot.nx_end - currentShot.nx_start);
+      const ny = currentShot.ny_start + t * (currentShot.ny_end - currentShot.ny_start);
+      const [bx, by] = courtToCanvas(nx, ny, W, H, orientation);
+      const grd = ctx.createRadialGradient(bx, by, 0, bx, by, 18);
+      grd.addColorStop(0, "rgba(250,204,21,0.5)"); grd.addColorStop(1, "rgba(250,204,21,0)");
+      ctx.beginPath(); ctx.arc(bx, by, 18, 0, Math.PI * 2); ctx.fillStyle = grd; ctx.fill();
+      ctx.beginPath(); ctx.arc(bx, by, 7, 0, Math.PI * 2); ctx.fillStyle = "#facc15"; ctx.fill();
+    } else {
+      // fallback: nearest detected position (no shot context)
+      const cf = closest(sortedFrames, frame, SNAP_WINDOW);
+      if (cf !== null) {
+        const data = index.get(cf)!;
+        if (data.ball) {
+          const [x, y] = pos(data.ball.cx, data.ball.cy, data.ball.nx, data.ball.ny, W, H);
           ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
-          ctx.strokeStyle = "rgba(250,204,21,0.6)"; ctx.setLineDash([3, 3]); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+          ctx.strokeStyle = "rgba(250,204,21,0.5)"; ctx.setLineDash([3, 3]); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
         }
       }
-      data.players.forEach((p) => {
+    }
+
+    // ── players ──
+    const cf = closest(sortedFrames, frame, SNAP_WINDOW);
+    if (cf !== null) {
+      index.get(cf)!.players.forEach((p) => {
         const [x, y] = pos(p.cx, p.cy, p.nx, p.ny, W, H);
         const color = PLAYER_COLORS[topIds.indexOf(p.id)] ?? "#6b7280";
         ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
