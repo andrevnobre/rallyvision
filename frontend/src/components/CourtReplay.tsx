@@ -147,18 +147,41 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp, a
       ctx.beginPath(); ctx.arc(x1, y1, 4, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(250,204,21,0.35)"; ctx.fill();
 
-      // ball position: use actual detection first, fall back to linear interp
+      // Ball position: interpolate between the two nearest detected frames
+      // within this shot. This gives realistic speed regardless of detection gaps.
+      let prevF: number | undefined, nextF: number | undefined;
+      for (const f of sortedFrames) {
+        if (f < currentShot.frame_start || f > currentShot.frame_end) continue;
+        if (f <= frame) prevF = f;
+        else if (nextF === undefined) { nextF = f; break; }
+      }
+
+      const validBallPos = (f: number): [number, number] | null => {
+        const b = index.get(f)?.ball;
+        if (!b || b.nx === undefined || b.nx < 0 || b.nx > 1) return null;
+        return courtToCanvas(b.nx, b.ny!, W, H, orientation);
+      };
+
       let bx: number, by: number;
-      const shotCf = closest(sortedFrames, frame, 12);
-      const shotData = shotCf !== null ? index.get(shotCf) : null;
-      const detectedBall = shotData?.ball;
-      if (detectedBall?.nx !== undefined && detectedBall.nx >= 0 && detectedBall.nx <= 1) {
-        [bx, by] = courtToCanvas(detectedBall.nx, detectedBall.ny!, W, H, orientation);
+      const pPos = prevF !== undefined ? validBallPos(prevF) : null;
+      const nPos = nextF !== undefined ? validBallPos(nextF) : null;
+
+      if (pPos && nPos) {
+        const t = (frame - prevF!) / (nextF! - prevF!);
+        bx = pPos[0] + t * (nPos[0] - pPos[0]);
+        by = pPos[1] + t * (nPos[1] - pPos[1]);
+      } else if (pPos) {
+        [bx, by] = pPos;
+      } else if (nPos) {
+        [bx, by] = nPos;
       } else {
+        // no detection in shot at all — linear between shot boundaries
         const t = Math.max(0, Math.min(1, (frame - currentShot.frame_start) / Math.max(1, currentShot.frame_end - currentShot.frame_start)));
-        const nx = currentShot.nx_start + t * (currentShot.nx_end - currentShot.nx_start);
-        const ny = currentShot.ny_start + t * (currentShot.ny_end - currentShot.ny_start);
-        [bx, by] = courtToCanvas(nx, ny, W, H, orientation);
+        [bx, by] = courtToCanvas(
+          currentShot.nx_start + t * (currentShot.nx_end - currentShot.nx_start),
+          currentShot.ny_start + t * (currentShot.ny_end - currentShot.ny_start),
+          W, H, orientation,
+        );
       }
       const grd = ctx.createRadialGradient(bx, by, 0, bx, by, 18);
       grd.addColorStop(0, "rgba(250,204,21,0.5)"); grd.addColorStop(1, "rgba(250,204,21,0)");
