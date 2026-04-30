@@ -147,11 +147,19 @@ export function CourtReplay({ videoId, result, onTimeUpdate: onTimeUpdateProp, a
       ctx.beginPath(); ctx.arc(x1, y1, 4, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(250,204,21,0.35)"; ctx.fill();
 
-      // interpolated ball position along the arrow
-      const t = Math.max(0, Math.min(1, (frame - currentShot.frame_start) / Math.max(1, currentShot.frame_end - currentShot.frame_start)));
-      const nx = currentShot.nx_start + t * (currentShot.nx_end - currentShot.nx_start);
-      const ny = currentShot.ny_start + t * (currentShot.ny_end - currentShot.ny_start);
-      const [bx, by] = courtToCanvas(nx, ny, W, H, orientation);
+      // ball position: use actual detection first, fall back to linear interp
+      let bx: number, by: number;
+      const shotCf = closest(sortedFrames, frame, 12);
+      const shotData = shotCf !== null ? index.get(shotCf) : null;
+      const detectedBall = shotData?.ball;
+      if (detectedBall?.nx !== undefined && detectedBall.nx >= 0 && detectedBall.nx <= 1) {
+        [bx, by] = courtToCanvas(detectedBall.nx, detectedBall.ny!, W, H, orientation);
+      } else {
+        const t = Math.max(0, Math.min(1, (frame - currentShot.frame_start) / Math.max(1, currentShot.frame_end - currentShot.frame_start)));
+        const nx = currentShot.nx_start + t * (currentShot.nx_end - currentShot.nx_start);
+        const ny = currentShot.ny_start + t * (currentShot.ny_end - currentShot.ny_start);
+        [bx, by] = courtToCanvas(nx, ny, W, H, orientation);
+      }
       const grd = ctx.createRadialGradient(bx, by, 0, bx, by, 18);
       grd.addColorStop(0, "rgba(250,204,21,0.5)"); grd.addColorStop(1, "rgba(250,204,21,0)");
       ctx.beginPath(); ctx.arc(bx, by, 18, 0, Math.PI * 2); ctx.fillStyle = grd; ctx.fill();
