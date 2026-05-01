@@ -4,11 +4,12 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.database import Base, engine
-from app.models import User, Video, CoachPlayer, VideoParticipant, VideoAnnotation  # noqa: F401 — garante que create_all vê todos os modelos
+from app.models import User, Video, CoachPlayer, VideoParticipant, VideoAnnotation, CoachFeedback  # noqa: F401 — garante que create_all vê todos os modelos
 from app.api.routes import videos
 from app.api.routes.admin import router as admin_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.coach import router as coach_router
+from app.api.routes.feedback import router as feedback_router
 from app.api.routes.internal import router as internal_router
 from app.api.routes.profile import router as profile_router
 from app.api.routes.annotations import router as annotations_router
@@ -35,6 +36,17 @@ with engine.connect() as _conn:
     _conn.execute(text("ALTER TABLE video_annotations ADD COLUMN IF NOT EXISTS frame_x FLOAT NULL"))
     _conn.execute(text("ALTER TABLE video_annotations ADD COLUMN IF NOT EXISTS frame_y FLOAT NULL"))
     _conn.execute(text("UPDATE users SET plan = 'pro' WHERE plan = 'free'"))
+    _conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS coach_feedback (
+            id VARCHAR(36) PRIMARY KEY,
+            name VARCHAR(255),
+            email VARCHAR(255),
+            text_feedback TEXT,
+            audio_mime VARCHAR(50),
+            audio_b64 TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """))
     if settings.admin_email:
         _conn.execute(
             text("UPDATE users SET is_admin = TRUE WHERE email = :e"),
@@ -61,6 +73,7 @@ app.include_router(profile_router)
 app.include_router(coach_router)
 app.include_router(videos.router)
 app.include_router(annotations_router)
+app.include_router(feedback_router)
 app.include_router(internal_router)
 app.include_router(admin_router)
 

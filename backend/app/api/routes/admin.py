@@ -1,10 +1,13 @@
+import base64
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.coach_feedback import CoachFeedback
 from app.models.user import User
 from app.models.video import Video
 from app.schemas.admin import (
@@ -13,6 +16,7 @@ from app.schemas.admin import (
     AdminUserResponse,
     AdminVideoResponse,
     AdminVideoSummary,
+    CoachFeedbackResponse,
     PatchUserRequest,
     PlanCounts,
     StatusCounts,
@@ -205,6 +209,50 @@ def update_video_result(
     video.result = _json.dumps(body)
     db.commit()
     return {"ok": True, "video_id": video_id}
+
+
+# ── Coach Feedback ───────────────────────────────────────────────────────────
+
+@router.get("/feedback", response_model=list[CoachFeedbackResponse])
+def list_feedback(
+    page: int = 1,
+    limit: int = 50,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    entries = (
+        db.query(CoachFeedback)
+        .order_by(CoachFeedback.created_at.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+    return [
+        CoachFeedbackResponse(
+            id=e.id,
+            name=e.name,
+            email=e.email,
+            text_feedback=e.text_feedback,
+            audio_mime=e.audio_mime,
+            has_audio=e.audio_b64 is not None,
+            created_at=e.created_at,
+        )
+        for e in entries
+    ]
+
+
+@router.get("/feedback/{feedback_id}/audio")
+def get_feedback_audio(
+    feedback_id: str,
+    _admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    entry = db.get(CoachFeedback, feedback_id)
+    if not entry or not entry.audio_b64:
+        raise HTTPException(404, "Áudio não encontrado")
+    raw = base64.b64decode(entry.audio_b64)
+    mime = entry.audio_mime or "audio/webm"
+    return Response(content=raw, media_type=mime)
 
 
 # ── Metrics ──────────────────────────────────────────────────────────────────

@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BT Vision — Analytics para Beach Tennis</title>
+  <meta name="description" content="Carrega um vídeo de jogo e em minutos tens heatmaps, trajetória da bola, rallies e anotações interativas. Para coaches e clubes de beach tennis."/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sand:    #F5EFE0;
+      --ocean:   #1A5F7A;
+      --ocean-2: #134E68;
+      --sky:     #2E9AB8;
+      --sky-2:   #3BB8D8;
+      --court:   #4CAF82;
+      --court-2: #3A9A6E;
+      --accent:  #E8862A;
+      --accent-2:#CF7520;
+      --dark:    #1A2332;
+      --mid:     #3A4A5C;
+      --light:   #6B7A8D;
+      --white:   #FFFFFF;
+      --radius:  14px;
+      --shadow:  0 4px 24px rgba(26,95,122,0.10);
+      --shadow-lg: 0 8px 40px rgba(26,95,122,0.16);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--sand);
+      color: var(--dark);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ─── NAV ─── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(26,95,122,0.97);
+      backdrop-filter: blur(10px);
+      padding: 0 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 56px;
+    }
+    .nav-logo {
+      font-size: 1.1rem; font-weight: 700; color: var(--white);
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .nav-logo .dot { color: var(--sky-2); }
+    .nav-links { display: flex; gap: 20px; list-style: none; }
+    .nav-links a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.85rem; transition: color .2s; white-space: nowrap; }
+    .nav-links a:hover { color: var(--white); }
+    .nav-cta {
+      background: var(--accent); color: var(--white);
+      font-size: 0.8rem; font-weight: 700;
+      padding: 7px 16px; border-radius: 100px;
+      text-decoration: none; white-space: nowrap; flex-shrink: 0;
+      transition: background .2s;
+    }
+    .nav-cta:hover { background: var(--accent-2); }
+
+    /* ─── HERO ─── */
+    .hero {
+      background: linear-gradient(150deg, var(--ocean-2) 0%, var(--sky) 65%, var(--court) 100%);
+      padding: 64px 20px 56px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+    .hero-inner { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: var(--white);
+      font-size: 0.75rem; font-weight: 600;
+      padding: 5px 14px; border-radius: 100px;
+      margin-bottom: 22px; letter-spacing: .06em; text-transform: uppercase;
+    }
+    .hero h1 {
+      font-size: clamp(1.9rem, 6vw, 3.4rem);
+      font-weight: 800; color: var(--white);
+      line-height: 1.15; margin-bottom: 18px;
+    }
+    .hero h1 span { color: var(--sky-2); }
+    .hero p {
+      font-size: clamp(0.95rem, 2.5vw, 1.1rem); color: rgba(255,255,255,0.88);
+      margin: 0 auto 36px;
+    }
+    .hero-cta {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--accent); color: var(--white);
+      font-size: 0.95rem; font-weight: 700;
+      padding: 13px 28px; border-radius: 100px;
+      text-decoration: none; transition: background .2s, transform .15s;
+      box-shadow: 0 4px 20px rgba(232,134,42,0.4);
+    }
+    .hero-cta:hover { background: var(--accent-2); transform: translateY(-2px); }
+
+    /* court SVG */
+    .court-illustration {
+      max-width: 480px; margin: 52px auto 0;
+      position: relative; z-index: 1;
+    }
+    .court-illustration svg {
+      width: 100%; height: auto;
+      filter: drop-shadow(0 12px 40px rgba(0,0,0,0.25));
+      border-radius: 12px;
+    }
+
+    /* ─── SHARED LAYOUT ─── */
+    .section { padding: 64px 20px; }
+    .section-alt { background: var(--white); }
+    .container { max-width: 1080px; margin: 0 auto; }
+
+    .section-label {
+      font-size: 0.75rem; font-weight: 700; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--sky); margin-bottom: 8px;
+    }
+    .section-title {
+      font-size: clamp(1.55rem, 4vw, 2.3rem);
+      font-weight: 800; color: var(--dark); line-height: 1.2; margin-bottom: 12px;
+    }
+    .section-sub {
+      font-size: clamp(0.9rem, 2vw, 1rem); color: var(--light);
+      max-width: 580px; margin-bottom: 48px;
+    }
+
+    /* ─── STAT STRIP ─── */
+    .stat-strip {
+      background: var(--ocean);
+      padding: 32px 20px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1px;
+      background-color: var(--ocean);
+    }
+    .stat-item {
+      background: var(--ocean);
+      text-align: center; padding: 20px 16px;
+    }
+    .stat-num  { font-size: clamp(1.6rem, 5vw, 2rem); font-weight: 800; color: var(--white); line-height: 1; }
+    .stat-label{ font-size: 0.78rem; color: rgba(255,255,255,0.6); margin-top: 4px; }
+
+    /* ─── FEATURES GRID ─── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    .feature-card {
+      background: var(--white);
+      border: 1px solid rgba(26,95,122,0.08);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      transition: transform .2s, box-shadow .2s;
+    }
+    .feature-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+    .feature-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; margin-bottom: 14px;
+    }
+    .icon-ocean  { background: #E8F4F8; }
+    .icon-court  { background: #E8F5EE; }
+    .icon-accent { background: #FDF0E3; }
+    .icon-sky    { background: #E3F2F9; }
+    .icon-purple { background: #F0EBF8; }
+    .feature-card h3 { font-size: 1.02rem; font-weight: 700; margin-bottom: 6px; color: var(--dark); }
+    .feature-card p  { font-size: 0.88rem; color: var(--light); line-height: 1.55; }
+
+    /* ─── DEMO SCREENS ─── */
+    .demo-strip {
+      background: linear-gradient(135deg, var(--dark) 0%, var(--ocean-2) 100%);
+      padding: 64px 20px;
+    }
+    .demo-strip .section-title { color: var(--white); }
+    .demo-strip .section-sub   { color: rgba(255,255,255,0.65); }
+    .demo-strip .section-label { color: var(--sky-2); }
+    .screens-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    .screen-card { border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+    .screen-mockup { background: #1E2D3D; padding: 12px 12px 0; border-radius: 12px 12px 0 0; }
+    .screen-bar { display: flex; gap: 6px; margin-bottom: 10px; }
+    .screen-bar span { width: 10px; height: 10px; border-radius: 50%; }
+    .screen-bar .r { background: #FF5F57; }
+    .screen-bar .y { background: #FFBD2E; }
+    .screen-bar .g { background: #28CA42; }
+    .screen-body { border-radius: 6px 6px 0 0; overflow: hidden; }
+    .screen-label { background: #1E2D3D; color: rgba(255,255,255,0.55); font-size: 0.78rem; text-align: center; padding: 10px; }
+
+    /* ─── HOW IT WORKS ─── */
+    .steps-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 32px;
+    }
+    .step { display: flex; align-items: flex-start; gap: 20px; }
+    .step-num {
+      width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--ocean), var(--sky));
+      color: var(--white); font-size: 1.2rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(26,95,122,0.3);
+    }
+    .step-text h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .step-text p  { font-size: 0.88rem; color: var(--light); }
+
+    /* ─── ROADMAP ─── */
+    .roadmap-grid {
+      display: grid; grid-template-columns: 1fr; gap: 20px;
+    }
+    .phase-card {
+      border-radius: var(--radius); padding: 24px;
+      border: 2px solid transparent; background: var(--white); box-shadow: var(--shadow);
+    }
+    .phase-now    { border-color: var(--court); }
+    .phase-next   { border-color: var(--sky); }
+    .phase-future { border-color: var(--accent); }
+    .phase-badge {
+      display: inline-block; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase;
+      padding: 4px 12px; border-radius: 100px; margin-bottom: 12px;
+    }
+    .badge-now    { background: #E8F5EE; color: var(--court-2); }
+    .badge-next   { background: #E3F2F9; color: var(--ocean); }
+    .badge-future { background: #FDF0E3; color: var(--accent-2); }
+    .phase-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 14px; }
+    .phase-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+    .phase-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem; color: var(--mid); }
+    .phase-list .check { color: var(--court); flex-shrink: 0; }
+    .phase-list .plan  { color: var(--sky);   flex-shrink: 0; }
+    .phase-list .star  { color: var(--accent); flex-shrink: 0; }
+
+    /* ─── PRICING ─── */
+    .pricing-grid {
+      display: grid; grid-template-columns: 1fr; gap: 20px;
+    }
+    .price-card {
+      background: var(--white);
+      border: 2px solid rgba(26,95,122,0.1);
+      border-radius: var(--radius); padding: 28px 24px;
+      box-shadow: var(--shadow); position: relative;
+    }
+    .price-card.featured { border-color: var(--sky); box-shadow: 0 8px 40px rgba(46,154,184,0.18); }
+    .featured-badge {
+      position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+      background: var(--sky); color: var(--white);
+      font-size: 0.7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      padding: 4px 14px; border-radius: 100px; white-space: nowrap;
+    }
+    .price-tier   { font-size: 0.8rem; font-weight: 700; color: var(--light); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .08em; }
+    .price-amount { font-size: 2.2rem; font-weight: 800; color: var(--dark); line-height: 1; margin-bottom: 4px; }
+    .price-amount span { font-size: 0.95rem; font-weight: 500; color: var(--light); }
+    .price-desc   { font-size: 0.85rem; color: var(--light); margin-bottom: 20px; }
+    .price-divider { border: none; border-top: 1px solid rgba(26,95,122,0.08); margin: 16px 0; }
+    .price-features { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+    .price-features li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem; color: var(--mid); }
+    .price-features .ok { color: var(--court); flex-shrink: 0; }
+    .price-features .no { color: #ccc; flex-shrink: 0; }
+    .price-note { font-size: 0.78rem; color: var(--light); margin-top: 10px; font-style: italic; }
+
+    /* ─── FEEDBACK ─── */
+    .feedback-section {
+      background: linear-gradient(135deg, var(--ocean-2), var(--sky));
+      padding: 64px 20px; text-align: center;
+    }
+    .feedback-section h2 { font-size: clamp(1.5rem, 4vw, 2rem); font-weight: 800; color: var(--white); margin-bottom: 12px; }
+    .feedback-section > p  { color: rgba(255,255,255,0.82); font-size: 0.98rem; max-width: 560px; margin: 0 auto 32px; }
+    .feedback-questions {
+      display: grid; grid-template-columns: 1fr;
+      gap: 14px; max-width: 860px; margin: 0 auto 36px;
+      text-align: left;
+    }
+    .fq {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px; padding: 18px 20px;
+    }
+    .fq-num { font-size: 1.3rem; font-weight: 800; color: var(--sky-2); margin-bottom: 6px; }
+    .fq p   { font-size: 0.9rem; color: rgba(255,255,255,0.88); line-height: 1.45; }
+
+    /* ─── FEEDBACK FORM ─── */
+    .feedback-form-wrap {
+      max-width: 680px; margin: 0 auto;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 20px; padding: 32px 28px;
+      text-align: left;
+    }
+    .fb-tabs {
+      display: flex; gap: 10px; margin-bottom: 28px;
+    }
+    .fb-tab {
+      flex: 1; padding: 12px 8px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 12px; cursor: pointer;
+      background: transparent; color: rgba(255,255,255,0.7);
+      font-family: inherit; font-size: 0.88rem; font-weight: 600;
+      transition: all .2s; text-align: center;
+    }
+    .fb-tab:hover { border-color: rgba(255,255,255,0.6); color: var(--white); }
+    .fb-tab.active { background: var(--white); color: var(--ocean-2); border-color: var(--white); }
+    .fb-tab .tab-icon { font-size: 1.2rem; display: block; margin-bottom: 4px; }
+    .fb-panel { display: none; }
+    .fb-panel.active { display: block; }
+
+    .fb-field { margin-bottom: 18px; }
+    .fb-field label {
+      display: block; font-size: 0.8rem; font-weight: 600;
+      color: rgba(255,255,255,0.7); margin-bottom: 7px;
+      text-transform: uppercase; letter-spacing: .07em;
+    }
+    .fb-field input, .fb-field textarea {
+      width: 100%; padding: 11px 14px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 10px; color: var(--white);
+      font-family: inherit; font-size: 0.93rem;
+      outline: none; transition: border-color .2s;
+      resize: vertical;
+    }
+    .fb-field input::placeholder, .fb-field textarea::placeholder { color: rgba(255,255,255,0.4); }
+    .fb-field input:focus, .fb-field textarea:focus { border-color: rgba(255,255,255,0.6); }
+    .fb-field textarea { min-height: 130px; }
+
+    .fb-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 540px) { .fb-row { grid-template-columns: 1fr; } }
+
+    /* Audio recorder */
+    .audio-recorder {
+      border: 2px dashed rgba(255,255,255,0.3);
+      border-radius: 14px; padding: 28px 20px;
+      text-align: center;
+    }
+    .audio-recorder p {
+      color: rgba(255,255,255,0.75); font-size: 0.88rem; margin-bottom: 18px;
+    }
+    .rec-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 24px; border-radius: 100px;
+      font-family: inherit; font-size: 0.92rem; font-weight: 700;
+      cursor: pointer; border: none; transition: all .2s;
+    }
+    .rec-btn.idle { background: var(--white); color: var(--ocean-2); }
+    .rec-btn.recording { background: #EF4444; color: var(--white); animation: pulse 1.5s infinite; }
+    .rec-btn.done { background: var(--court); color: var(--white); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+    .rec-timer {
+      margin-top: 12px; font-size: 1.1rem; font-weight: 700;
+      color: var(--white); font-variant-numeric: tabular-nums;
+      min-height: 1.5em;
+    }
+    .rec-actions { margin-top: 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .rec-actions button {
+      padding: 8px 18px; border-radius: 100px;
+      font-family: inherit; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; border: 1px solid rgba(255,255,255,0.4);
+      background: transparent; color: rgba(255,255,255,0.85);
+      transition: all .2s;
+    }
+    .rec-actions button:hover { background: rgba(255,255,255,0.15); }
+    #audio-preview { margin-top: 16px; width: 100%; border-radius: 8px; display: none; }
+    .audio-tip {
+      margin-top: 12px; font-size: 0.78rem;
+      color: rgba(255,255,255,0.5); font-style: italic;
+    }
+
+    .fb-submit {
+      width: 100%; padding: 14px;
+      background: var(--accent); color: var(--white);
+      border: none; border-radius: 100px;
+      font-family: inherit; font-size: 1rem; font-weight: 700;
+      cursor: pointer; transition: background .2s, transform .15s;
+      margin-top: 8px;
+    }
+    .fb-submit:hover { background: var(--accent-2); transform: translateY(-1px); }
+    .fb-submit:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+    .fb-success {
+      display: none; text-align: center; padding: 24px 0;
+    }
+    .fb-success .success-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    .fb-success h3 { color: var(--white); font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
+    .fb-success p { color: rgba(255,255,255,0.75); font-size: 0.92rem; }
+
+    /* ─── FOOTER ─── */
+    footer { background: var(--dark); padding: 36px 20px; text-align: center; }
+    .footer-logo { font-size: 1.2rem; font-weight: 800; color: var(--white); margin-bottom: 8px; }
+    .footer-logo span { color: var(--sky-2); }
+    footer p { font-size: 0.82rem; color: rgba(255,255,255,0.4); }
+    footer a { color: var(--sky-2); text-decoration: none; }
+
+    /* ─── TABLET: 600px+ ─── */
+    @media (min-width: 600px) {
+      .stat-strip { grid-template-columns: repeat(4, 1fr); }
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .screens-row { grid-template-columns: repeat(2, 1fr); }
+      .roadmap-grid { grid-template-columns: 1fr; }
+      .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+      .feedback-questions { grid-template-columns: repeat(2, 1fr); }
+      .steps-row { grid-template-columns: repeat(2, 1fr); gap: 28px; }
+      .step { flex-direction: column; align-items: center; text-align: center; }
+      .step-text h3 { text-align: center; }
+    }
+
+    /* ─── DESKTOP: 900px+ ─── */
+    @media (min-width: 900px) {
+      nav { padding: 0 32px; }
+      .hero { padding: 96px 32px 72px; }
+      .section { padding: 80px 32px; }
+      .features-grid { grid-template-columns: repeat(3, 1fr); }
+      .screens-row { grid-template-columns: repeat(3, 1fr); }
+      .roadmap-grid { grid-template-columns: repeat(3, 1fr); }
+      .pricing-grid { grid-template-columns: repeat(3, 1fr); align-items: start; }
+      .price-card.featured { transform: scale(1.03); }
+      .feedback-questions { grid-template-columns: repeat(4, 1fr); }
+      .steps-row { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    }
+
+    /* ─── HIDE NAV LINKS on small screens ─── */
+    @media (max-width: 720px) {
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="#3BB8D8" stroke-width="2"/><path d="M7 11c0-2.2 1.8-4 4-4s4 1.8 4 4-1.8 4-4 4" stroke="#3BB8D8" stroke-width="2" stroke-linecap="round"/><circle cx="11" cy="11" r="2" fill="#3BB8D8"/></svg>
+    BT<span class="dot"> Vision</span>
+  </div>
+  <ul class="nav-links">
+    <li><a href="#funcionalidades">Funcionalidades</a></li>
+    <li><a href="#como-funciona">Como funciona</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#planos">Planos</a></li>
+  </ul>
+  <a href="#feedback" class="nav-cta">Dar feedback</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-badge">Pré-lançamento · Pedimos o teu feedback</div>
+    <h1>Analytics de <span>beach tennis</span><br>para coaches e clubes</h1>
+    <p>Carrega um vídeo de jogo. Em minutos tens heatmaps, rallies, trajetória da bola e anotações — tudo sincronizado com o vídeo, para dar feedback aos teus alunos com dados reais.</p>
+    <a href="#feedback" class="hero-cta">
+      <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M9 2L11.5 7H16.5L12.5 10.5L14 16L9 13L4 16L5.5 10.5L1.5 7H6.5L9 2Z" fill="currentColor"/></svg>
+      Dar feedback sobre o produto
+    </a>
+
+    <div class="court-illustration">
+      <svg viewBox="0 0 520 310" xmlns="http://www.w3.org/2000/svg">
+        <rect width="520" height="310" fill="#2C5F3A" rx="10"/>
+        <defs>
+          <pattern id="sp" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="0.8" fill="#E8D4A0" opacity="0.35"/>
+            <circle cx="6" cy="6" r="0.6" fill="#E8D4A0" opacity="0.25"/>
+          </pattern>
+          <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L6,3 Z" fill="rgba(245,239,224,0.65)"/>
+          </marker>
+          <radialGradient id="g1" cx="50%" cy="50%">
+            <stop offset="0%"   stop-color="#3BB8D8" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="#3BB8D8" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="g2" cx="50%" cy="50%">
+            <stop offset="0%"   stop-color="#E8862A" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="#E8862A" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="520" height="310" fill="url(#sp)" opacity="0.5" rx="10"/>
+        <!-- Court lines -->
+        <rect x="55" y="35" width="410" height="240" fill="none" stroke="#fff" stroke-width="2.5" opacity="0.85"/>
+        <line x1="260" y1="35" x2="260" y2="275" stroke="#fff" stroke-width="2.5" opacity="0.85"/>
+        <line x1="55" y1="115" x2="465" y2="115" stroke="#fff" stroke-width="1.5" opacity="0.55" stroke-dasharray="6,4"/>
+        <line x1="55" y1="195" x2="465" y2="195" stroke="#fff" stroke-width="1.5" opacity="0.55" stroke-dasharray="6,4"/>
+        <line x1="55" y1="155" x2="260" y2="155" stroke="#fff" stroke-width="1.2" opacity="0.4" stroke-dasharray="4,4"/>
+        <line x1="260" y1="155" x2="465" y2="155" stroke="#fff" stroke-width="1.2" opacity="0.4" stroke-dasharray="4,4"/>
+        <!-- Heatmaps -->
+        <circle cx="140" cy="158" r="65" fill="url(#g1)"/>
+        <circle cx="380" cy="152" r="55" fill="url(#g2)"/>
+        <!-- Players -->
+        <circle cx="140" cy="158" r="11" fill="#3BB8D8" stroke="#fff" stroke-width="2"/>
+        <text x="140" y="163" text-anchor="middle" fill="white" font-size="9" font-weight="bold">P1</text>
+        <circle cx="380" cy="152" r="11" fill="#E8862A" stroke="#fff" stroke-width="2"/>
+        <text x="380" y="157" text-anchor="middle" fill="white" font-size="9" font-weight="bold">P2</text>
+        <!-- Ball trajectory -->
+        <path d="M140 144 Q200 55 260 95 Q310 130 380 144" fill="none" stroke="rgba(245,239,224,0.75)" stroke-width="2" stroke-dasharray="5,3"/>
+        <line x1="140" y1="144" x2="255" y2="98" stroke="rgba(245,239,224,0.6)" stroke-width="1.5" marker-end="url(#arr)"/>
+        <line x1="265" y1="96" x2="375" y2="145" stroke="rgba(245,239,224,0.6)" stroke-width="1.5" marker-end="url(#arr)"/>
+        <circle cx="260" cy="94" r="8" fill="#F5EFE0" stroke="#E8862A" stroke-width="2"/>
+        <circle cx="260" cy="94" r="3.5" fill="#E8862A"/>
+        <!-- Annotation -->
+        <circle cx="190" cy="200" r="10" fill="#FF5F57" stroke="#fff" stroke-width="2"/>
+        <text x="190" y="205" text-anchor="middle" fill="white" font-size="8" font-weight="bold">!</text>
+        <rect x="206" y="185" width="118" height="28" fill="rgba(0,0,0,0.72)" rx="6"/>
+        <text x="265" y="203" text-anchor="middle" fill="white" font-size="8.5">Trabalhar posicionamento</text>
+        <!-- Badges -->
+        <rect x="10" y="10" width="70" height="24" fill="rgba(0,0,0,0.55)" rx="5"/>
+        <text x="45" y="26" text-anchor="middle" fill="white" font-size="9.5" font-weight="bold">Rally #7</text>
+        <rect x="440" y="10" width="72" height="24" fill="rgba(59,184,216,0.85)" rx="5"/>
+        <text x="476" y="26" text-anchor="middle" fill="white" font-size="9.5" font-weight="bold">28 rallies</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stat-strip">
+  <div class="stat-item">
+    <div class="stat-num">~5 min</div>
+    <div class="stat-label">para processar 60 min de vídeo</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">+80%</div>
+    <div class="stat-label">precisão na deteção da bola</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">4</div>
+    <div class="stat-label">jogadores rastreados por frame</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">100%</div>
+    <div class="stat-label">automático — sem edição manual</div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="section" id="funcionalidades">
+  <div class="container">
+    <div class="section-label">Funcionalidades disponíveis</div>
+    <h2 class="section-title">Tudo o que já consegues fazer</h2>
+    <p class="section-sub">O produto está funcional. Carregas o vídeo e em minutos tens a análise completa da partida.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon icon-ocean">🎾</div>
+        <h3>Rastreamento da bola frame-a-frame</h3>
+        <p>A bola é detetada automaticamente por IA em cada fotograma. Vês a trajetória exata com interpolação entre deteções.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-court">🔥</div>
+        <h3>Heatmap de posicionamento</h3>
+        <p>Mapa de calor que mostra onde cada jogador esteve durante a partida. Identifica padrões e lacunas de cobertura.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-sky">📍</div>
+        <h3>Análise de shots com flechas</h3>
+        <p>Cada tacada é representada como uma flecha origem→destino no mapa da quadra. Filtra por jogador para perceber o padrão ofensivo e defensivo.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-accent">▶️</div>
+        <h3>Replay interativo sincronizado</h3>
+        <p>Reprodução do vídeo frame-a-frame com a posição da bola e jogadores sobrepostos. Avança, recua e pausa para analisar o momento exato.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-purple">🏷️</div>
+        <h3>Extração automática de rallies</h3>
+        <p>A IA deteta o início e fim de cada rally. Chips clicáveis na timeline para navegar diretamente para qualquer momento do jogo.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-ocean">✏️</div>
+        <h3>Anotações interativas</h3>
+        <p>Clica na quadra ou no vídeo para criar pins georreferenciados com timestamp. Adiciona tags e respostas. Os pins aparecem sincronizados com o replay.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-court">👨‍🏫</div>
+        <h3>Dashboard do coach</h3>
+        <p>Painel com todos os teus alunos, os vídeos de cada um e acesso rápido às análises. Adiciona alunos como participantes em qualquer vídeo.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-sky">🔗</div>
+        <h3>Partilha por link público</h3>
+        <p>Gera um link de partilha para qualquer análise — o aluno acede sem precisar de criar conta. Revogável a qualquer momento.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon icon-accent">📄</div>
+        <h3>Exportação em PDF</h3>
+        <p>Relatório PDF com heatmaps e estatísticas — para enviar ao aluno ou imprimir para a sessão de treino.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREEN DEMOS -->
+<section class="demo-strip" id="screenshots">
+  <div class="container">
+    <div class="section-label">Visualizações</div>
+    <h2 class="section-title">Como a análise aparece</h2>
+    <p class="section-sub">Três vistas que o coach usa no dia-a-dia.</p>
+
+    <div class="screens-row">
+      <!-- Heatmap -->
+      <div class="screen-card">
+        <div class="screen-mockup">
+          <div class="screen-bar"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+          <div class="screen-body">
+            <svg viewBox="0 0 280 190" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%">
+              <rect width="280" height="190" fill="#1E2A3A"/>
+              <rect x="20" y="14" width="240" height="162" fill="#2C5F3A" opacity="0.45"/>
+              <rect x="20" y="14" width="240" height="162" fill="none" stroke="#4A6741" stroke-width="1.5"/>
+              <line x1="140" y1="14" x2="140" y2="176" stroke="#6A9B60" stroke-width="1.5"/>
+              <line x1="20" y1="68" x2="260" y2="68" stroke="#6A9B60" stroke-width="1" opacity="0.6" stroke-dasharray="4,3"/>
+              <line x1="20" y1="122" x2="260" y2="122" stroke="#6A9B60" stroke-width="1" opacity="0.6" stroke-dasharray="4,3"/>
+              <defs>
+                <radialGradient id="rh1" cx="50%" cy="50%"><stop offset="0%" stop-color="#FF4444" stop-opacity="0.7"/><stop offset="55%" stop-color="#FF8800" stop-opacity="0.4"/><stop offset="100%" stop-color="#FFFF00" stop-opacity="0.0"/></radialGradient>
+                <radialGradient id="rh2" cx="50%" cy="50%"><stop offset="0%" stop-color="#4488FF" stop-opacity="0.7"/><stop offset="55%" stop-color="#44AAFF" stop-opacity="0.4"/><stop offset="100%" stop-color="#44CCFF" stop-opacity="0.0"/></radialGradient>
+              </defs>
+              <circle cx="75" cy="95" r="48" fill="url(#rh1)"/>
+              <circle cx="205" cy="90" r="42" fill="url(#rh2)"/>
+              <rect x="4" y="2" width="52" height="14" fill="rgba(0,0,0,0.55)" rx="3"/>
+              <text x="30" y="12" text-anchor="middle" fill="white" font-size="7.5" font-weight="bold">Heatmap</text>
+              <rect x="4" y="162" width="110" height="20" fill="rgba(0,0,0,0.55)" rx="3"/>
+              <circle cx="14" cy="172" r="4" fill="url(#rh1)"/>
+              <text x="22" y="175" fill="rgba(255,255,255,0.7)" font-size="7">Jogador 1</text>
+              <circle cx="68" cy="172" r="4" fill="url(#rh2)"/>
+              <text x="76" y="175" fill="rgba(255,255,255,0.7)" font-size="7">Jogador 2</text>
+            </svg>
+          </div>
+        </div>
+        <div class="screen-label">Heatmap de posicionamento</div>
+      </div>
+
+      <!-- Shot arrows -->
+      <div class="screen-card">
+        <div class="screen-mockup">
+          <div class="screen-bar"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+          <div class="screen-body">
+            <svg viewBox="0 0 280 190" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%">
+              <rect width="280" height="190" fill="#1E2A3A"/>
+              <rect x="20" y="14" width="240" height="162" fill="#2C5F3A" opacity="0.45"/>
+              <rect x="20" y="14" width="240" height="162" fill="none" stroke="#4A6741" stroke-width="1.5"/>
+              <line x1="140" y1="14" x2="140" y2="176" stroke="#6A9B60" stroke-width="1.5"/>
+              <defs>
+                <marker id="ma1" markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L5,2.5 Z" fill="#3BB8D8" opacity="0.85"/></marker>
+                <marker id="ma2" markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto"><path d="M0,0 L0,5 L5,2.5 Z" fill="#E8862A" opacity="0.85"/></marker>
+              </defs>
+              <line x1="68" y1="80" x2="205" y2="55" stroke="#3BB8D8" stroke-width="1.6" marker-end="url(#ma1)" opacity="0.8"/>
+              <line x1="62" y1="106" x2="212" y2="125" stroke="#3BB8D8" stroke-width="1.6" marker-end="url(#ma1)" opacity="0.65"/>
+              <line x1="78" y1="135" x2="196" y2="76" stroke="#3BB8D8" stroke-width="1.6" marker-end="url(#ma1)" opacity="0.55"/>
+              <line x1="52" y1="90" x2="222" y2="150" stroke="#3BB8D8" stroke-width="1.6" marker-end="url(#ma1)" opacity="0.5"/>
+              <line x1="208" y1="60" x2="72" y2="95" stroke="#E8862A" stroke-width="1.6" marker-end="url(#ma2)" opacity="0.8"/>
+              <line x1="204" y1="120" x2="68" y2="76" stroke="#E8862A" stroke-width="1.6" marker-end="url(#ma2)" opacity="0.65"/>
+              <line x1="216" y1="140" x2="78" y2="126" stroke="#E8862A" stroke-width="1.6" marker-end="url(#ma2)" opacity="0.55"/>
+              <rect x="4" y="2" width="72" height="14" fill="rgba(0,0,0,0.55)" rx="3"/>
+              <text x="40" y="12" text-anchor="middle" fill="white" font-size="7.5" font-weight="bold">Shots · 12 rallies</text>
+            </svg>
+          </div>
+        </div>
+        <div class="screen-label">Mapa de shots com flechas</div>
+      </div>
+
+      <!-- Replay + annotations -->
+      <div class="screen-card">
+        <div class="screen-mockup">
+          <div class="screen-bar"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+          <div class="screen-body">
+            <svg viewBox="0 0 280 190" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%">
+              <rect width="280" height="190" fill="#0F1A24"/>
+              <rect x="0" y="0" width="280" height="138" fill="#1a2a1a"/>
+              <rect x="14" y="9" width="252" height="124" fill="#2C5F3A" opacity="0.5"/>
+              <rect x="14" y="9" width="252" height="124" fill="none" stroke="#4A6741" stroke-width="1"/>
+              <line x1="140" y1="9" x2="140" y2="133" stroke="#6A9B60" stroke-width="1"/>
+              <!-- Players -->
+              <ellipse cx="68" cy="96" rx="8" ry="20" fill="#3BB8D8" opacity="0.75"/>
+              <circle cx="68" cy="72" r="7" fill="#3BB8D8" opacity="0.75"/>
+              <ellipse cx="212" cy="94" rx="8" ry="20" fill="#E8862A" opacity="0.75"/>
+              <circle cx="212" cy="70" r="7" fill="#E8862A" opacity="0.75"/>
+              <!-- Pin -->
+              <circle cx="98" cy="114" r="8" fill="#FF5F57" stroke="white" stroke-width="1.5"/>
+              <text x="98" y="118" text-anchor="middle" fill="white" font-size="7" font-weight="bold">!</text>
+              <!-- Popup -->
+              <rect x="110" y="100" width="130" height="34" fill="rgba(20,30,45,0.92)" rx="5" stroke="rgba(255,255,255,0.12)" stroke-width="0.5"/>
+              <circle cx="120" cy="109" r="5" fill="#FF5F57"/>
+              <text x="128" y="111" fill="rgba(255,255,255,0.9)" font-size="7.5" font-weight="bold">Posicionamento</text>
+              <text x="118" y="121" fill="rgba(255,255,255,0.55)" font-size="6.5">Demasiado perto da rede</text>
+              <text x="118" y="129" fill="rgba(255,255,255,0.35)" font-size="6">00:47 · Coach Rui</text>
+              <!-- Timeline -->
+              <rect x="0" y="138" width="280" height="28" fill="#0F1A24"/>
+              <rect x="10" y="148" width="260" height="4" fill="#2A3A4A" rx="2"/>
+              <rect x="10" y="148" width="88" height="4" fill="#3BB8D8" rx="2"/>
+              <!-- Rally chips -->
+              <rect x="18" y="158" width="22" height="8" fill="#2A3A4A" rx="2"/>
+              <text x="29" y="165" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="5.5">R1</text>
+              <rect x="45" y="158" width="22" height="8" fill="#3BB8D8" rx="2"/>
+              <text x="56" y="165" text-anchor="middle" fill="white" font-size="5.5">R2</text>
+              <rect x="72" y="158" width="22" height="8" fill="#2A3A4A" rx="2"/>
+              <text x="83" y="165" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="5.5">R3</text>
+              <rect x="99" y="158" width="22" height="8" fill="#2A3A4A" rx="2"/>
+              <text x="110" y="165" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="5.5">R4</text>
+            </svg>
+          </div>
+        </div>
+        <div class="screen-label">Replay com anotações e rallies</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section section-alt" id="como-funciona">
+  <div class="container">
+    <div class="section-label">Processo</div>
+    <h2 class="section-title">Como funciona</h2>
+    <p class="section-sub">Quatro passos desde o vídeo bruto até à análise completa.</p>
+    <div class="steps-row">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">
+          <h3>Filma a partida</h3>
+          <p>Qualquer câmera fixa com bom enquadramento da quadra completa funciona.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">
+          <h3>Faz upload do vídeo</h3>
+          <p>Arrasta o ficheiro para a plataforma e defines os cantos da quadra uma única vez com um guia visual.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">
+          <h3>A IA processa</h3>
+          <p>O modelo deteta a bola, rastreia os jogadores e extrai os rallies automaticamente.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">
+          <h3>Analisa e partilha</h3>
+          <p>Anotações, heatmaps, replay e PDF prontos. Partilha o link com o aluno ou imprime o relatório.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section class="section" id="roadmap">
+  <div class="container">
+    <div class="section-label">O que vem a seguir</div>
+    <h2 class="section-title">Roadmap do produto</h2>
+    <p class="section-sub">O que está disponível hoje, o que estamos a construir, e para onde queremos ir.</p>
+    <div class="roadmap-grid">
+      <div class="phase-card phase-now">
+        <div class="phase-badge badge-now">✅ Disponível agora</div>
+        <h3>Fase 1 — Produto base</h3>
+        <ul class="phase-list">
+          <li><span class="check">✓</span> Upload e processamento de vídeo por IA</li>
+          <li><span class="check">✓</span> Rastreamento da bola e dos 4 jogadores</li>
+          <li><span class="check">✓</span> Heatmap de posicionamento (bola + jogadores)</li>
+          <li><span class="check">✓</span> Mapa de shots origem→destino</li>
+          <li><span class="check">✓</span> Replay interativo com rallies na timeline</li>
+          <li><span class="check">✓</span> Anotações interativas georreferenciadas</li>
+          <li><span class="check">✓</span> Dashboard do coach com lista de alunos</li>
+          <li><span class="check">✓</span> Partilha por link público (sem conta)</li>
+          <li><span class="check">✓</span> Exportação de relatório em PDF</li>
+        </ul>
+      </div>
+      <div class="phase-card phase-next">
+        <div class="phase-badge badge-next">🔨 A construir — Fase 2</div>
+        <h3>Diferenciação e clubes</h3>
+        <ul class="phase-list">
+          <li><span class="plan">○</span> Classificação automática de tacadas (saque, smash, defesa, lob, bandeja)</li>
+          <li><span class="plan">○</span> Análise de erros não forçados por jogador</li>
+          <li><span class="plan">○</span> Evolução do aluno entre partidas (gráficos de progressão)</li>
+          <li><span class="plan">○</span> Relatórios PDF em 3 níveis de detalhe</li>
+          <li><span class="plan">○</span> Recomendações de treino baseadas nos dados</li>
+          <li><span class="plan">○</span> Integração de câmeras fixas no clube (auto-upload)</li>
+          <li><span class="plan">○</span> Kit 2 câmeras — posição 3D real da bola</li>
+        </ul>
+      </div>
+      <div class="phase-card phase-future">
+        <div class="phase-badge badge-future">🚀 Visão — Fase 3</div>
+        <h3>Escala e mobile</h3>
+        <ul class="phase-list">
+          <li><span class="star">◇</span> App mobile (iOS + Android) para upload direto</li>
+          <li><span class="star">◇</span> Recomendações de treino geradas por IA</li>
+          <li><span class="star">◇</span> API pública para clubes e sistemas de gestão</li>
+          <li><span class="star">◇</span> Expansão para Brasil (PIX, BRL)</li>
+          <li><span class="star">◇</span> Parcerias com federações (FPT, CBBeT)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section section-alt" id="planos">
+  <div class="container">
+    <div class="section-label">Preços</div>
+    <h2 class="section-title">Planos previstos</h2>
+    <p class="section-sub">Preços pensados para uso individual e para clubes. Queremos perceber se fazem sentido para a tua realidade.</p>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-tier">Free</div>
+        <div class="price-amount">€0</div>
+        <div class="price-desc">Para experimentar e ver se vale a pena</div>
+        <hr class="price-divider"/>
+        <ul class="price-features">
+          <li><span class="ok">✓</span> 2 vídeos por mês</li>
+          <li><span class="ok">✓</span> Heatmaps + replay + rallies</li>
+          <li><span class="ok">✓</span> Partilha por link</li>
+          <li><span class="ok">✓</span> PDF básico</li>
+          <li><span class="no">–</span> Dashboard de coach</li>
+          <li><span class="no">–</span> Anotações</li>
+          <li><span class="no">–</span> Evolução de alunos</li>
+        </ul>
+      </div>
+      <div class="price-card featured">
+        <div class="featured-badge">Mais popular</div>
+        <div class="price-tier">Pro</div>
+        <div class="price-amount">€29 <span>/ mês</span></div>
+        <div class="price-desc">Para coaches individuais com múltiplos alunos</div>
+        <hr class="price-divider"/>
+        <ul class="price-features">
+          <li><span class="ok">✓</span> 8 vídeos por mês</li>
+          <li><span class="ok">✓</span> Tudo do Free</li>
+          <li><span class="ok">✓</span> Dashboard de coach completo</li>
+          <li><span class="ok">✓</span> Anotações com comentários</li>
+          <li><span class="ok">✓</span> Evolução de alunos (Fase 2)</li>
+          <li><span class="ok">✓</span> Classificação de tacadas (Fase 2)</li>
+          <li><span class="ok">✓</span> PDF avançado</li>
+        </ul>
+      </div>
+      <div class="price-card">
+        <div class="price-tier">Club</div>
+        <div class="price-amount">€99 <span>/ mês</span></div>
+        <div class="price-desc">Para academias e clubes com múltiplas quadras</div>
+        <hr class="price-divider"/>
+        <ul class="price-features">
+          <li><span class="ok">✓</span> 20 vídeos por mês</li>
+          <li><span class="ok">✓</span> Tudo do Pro</li>
+          <li><span class="ok">✓</span> Múltiplos coaches</li>
+          <li><span class="ok">✓</span> Câmeras fixas integradas (Fase 2)</li>
+          <li><span class="ok">✓</span> Kit 2 câmeras — posição 3D (Fase 2)</li>
+          <li><span class="ok">✓</span> Relatórios em 3 níveis</li>
+          <li><span class="ok">✓</span> Suporte prioritário</li>
+        </ul>
+        <p class="price-note">Clube piloto: 3 meses gratuitos + 50% de desconto permanente.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEEDBACK -->
+<section class="feedback-section" id="feedback">
+  <h2>A tua opinião define o produto</h2>
+  <p>Ainda estamos a construir. Conta-nos o que pensas — por escrito ou em voz alta. Responde ao que quiseres, não há certo nem errado.</p>
+
+  <div class="feedback-questions">
+    <div class="fq">
+      <div class="fq-num">01</div>
+      <p>Usarias esta ferramenta no teu trabalho como coach? O que te faz mais falta?</p>
+    </div>
+    <div class="fq">
+      <div class="fq-num">02</div>
+      <p>Quanto pagarias por uma solução como esta? O plano Pro a €29/mês faz sentido?</p>
+    </div>
+    <div class="fq">
+      <div class="fq-num">03</div>
+      <p>Que funcionalidade te parece mais valiosa — e qual te parece menos importante?</p>
+    </div>
+    <div class="fq">
+      <div class="fq-num">04</div>
+      <p>Como dás feedback aos teus alunos hoje após um jogo?</p>
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div class="feedback-form-wrap">
+
+    <div id="fb-form-inner">
+      <!-- tabs -->
+      <div class="fb-tabs" role="tablist">
+        <button class="fb-tab active" data-panel="text" role="tab" aria-selected="true">
+          <span class="tab-icon">✍️</span>
+          Escrever feedback
+        </button>
+        <button class="fb-tab" data-panel="audio" role="tab" aria-selected="false">
+          <span class="tab-icon">🎙️</span>
+          Nota de voz
+        </button>
+      </div>
+
+      <!-- identity (always visible) -->
+      <div class="fb-row">
+        <div class="fb-field">
+          <label for="fb-name">Nome (opcional)</label>
+          <input type="text" id="fb-name" placeholder="O teu nome">
+        </div>
+        <div class="fb-field">
+          <label for="fb-email">Email (para respondermos)</label>
+          <input type="email" id="fb-email" placeholder="coach@exemplo.pt">
+        </div>
+      </div>
+
+      <!-- text panel -->
+      <div class="fb-panel active" id="panel-text">
+        <div class="fb-field">
+          <label for="fb-text">As tuas respostas / comentários livres</label>
+          <textarea id="fb-text" placeholder="Escreve aqui o que quiseres — responde às perguntas acima, partilha uma ideia, conta como trabalhas hoje…"></textarea>
+        </div>
+      </div>
+
+      <!-- audio panel -->
+      <div class="fb-panel" id="panel-audio">
+        <div class="audio-recorder">
+          <p>Fala livremente durante 1-2 minutos. Não precisas de preparação — diz o que te vem à cabeça sobre o produto.</p>
+          <button class="rec-btn idle" id="rec-btn" type="button">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" fill="currentColor"/><path d="M4 8c0 2.2 1.8 4 4 4s4-1.8 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="8" y1="12" x2="8" y2="15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            Começar a gravar
+          </button>
+          <div class="rec-timer" id="rec-timer"></div>
+          <div class="rec-actions" id="rec-actions" style="display:none">
+            <button id="rec-discard" type="button">Descartar</button>
+          </div>
+          <audio id="audio-preview" controls></audio>
+          <p class="audio-tip">Máx. 10 minutos · Gravado directamente no browser, nada é enviado até clicares em Enviar</p>
+        </div>
+      </div>
+
+      <button class="fb-submit" id="fb-submit" type="button">Enviar feedback</button>
+    </div>
+
+    <!-- success state -->
+    <div class="fb-success" id="fb-success">
+      <div class="success-icon">🎉</div>
+      <h3>Obrigado pelo feedback!</h3>
+      <p>A tua opinião vai directamente para o André. Se deixaste email, responde-te em breve.</p>
+    </div>
+
+  </div>
+</section>
+
+<script>
+(function () {
+  const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8000'
+    : 'https://api.bt-vision.com';
+
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  document.querySelectorAll('.fb-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.fb-tab').forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+      document.querySelectorAll('.fb-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+    });
+  });
+
+  // ── Audio recorder ─────────────────────────────────────────────────────────
+  let mediaRecorder = null;
+  let chunks = [];
+  let audioBlob = null;
+  let timerInterval = null;
+  let seconds = 0;
+  const MAX_SECONDS = 600;
+
+  const recBtn    = document.getElementById('rec-btn');
+  const recTimer  = document.getElementById('rec-timer');
+  const recActions= document.getElementById('rec-actions');
+  const preview   = document.getElementById('audio-preview');
+  const discardBtn= document.getElementById('rec-discard');
+
+  function fmt(s) {
+    const m = Math.floor(s / 60), ss = s % 60;
+    return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+  }
+
+  recBtn.addEventListener('click', async () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      audioBlob = null;
+      preview.style.display = 'none';
+      recActions.style.display = 'none';
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+                     : MediaRecorder.isTypeSupported('audio/ogg')  ? 'audio/ogg'
+                     : '';
+      mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        clearInterval(timerInterval);
+        audioBlob = new Blob(chunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        preview.src = URL.createObjectURL(audioBlob);
+        preview.style.display = 'block';
+        recActions.style.display = 'flex';
+        recBtn.className = 'rec-btn done';
+        recBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" fill="currentColor"/><path d="M4 8c0 2.2 1.8 4 4 4s4-1.8 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="8" y1="12" x2="8" y2="15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Gravar de novo`;
+      };
+
+      mediaRecorder.start(250);
+      seconds = 0;
+      recTimer.textContent = fmt(0);
+      timerInterval = setInterval(() => {
+        seconds++;
+        recTimer.textContent = fmt(seconds);
+        if (seconds >= MAX_SECONDS) mediaRecorder.stop();
+      }, 1000);
+
+      recBtn.className = 'rec-btn recording';
+      recBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor"/></svg> Parar gravação`;
+    } catch (err) {
+      alert('Não foi possível aceder ao microfone. Verifica as permissões do browser.');
+    }
+  });
+
+  discardBtn.addEventListener('click', () => {
+    audioBlob = null;
+    preview.src = '';
+    preview.style.display = 'none';
+    recActions.style.display = 'none';
+    recTimer.textContent = '';
+    recBtn.className = 'rec-btn idle';
+    recBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" fill="currentColor"/><path d="M4 8c0 2.2 1.8 4 4 4s4-1.8 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="8" y1="12" x2="8" y2="15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Começar a gravar`;
+  });
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  document.getElementById('fb-submit').addEventListener('click', async () => {
+    const name  = document.getElementById('fb-name').value.trim();
+    const email = document.getElementById('fb-email').value.trim();
+    const text  = document.getElementById('fb-text').value.trim();
+
+    if (!text && !audioBlob) {
+      alert('Escreve algo ou grava uma nota de voz antes de enviar.');
+      return;
+    }
+
+    const btn = document.getElementById('fb-submit');
+    btn.disabled = true;
+    btn.textContent = 'A enviar…';
+
+    try {
+      const fd = new FormData();
+      if (name)  fd.append('name', name);
+      if (email) fd.append('email', email);
+      if (text)  fd.append('text_feedback', text);
+      if (audioBlob) fd.append('audio', audioBlob, 'feedback.webm');
+
+      const res = await fetch(`${API}/feedback`, { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Erro ' + res.status);
+
+      document.getElementById('fb-form-inner').style.display = 'none';
+      document.getElementById('fb-success').style.display = 'block';
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Enviar feedback';
+      alert('Erro ao enviar. Tenta de novo ou envia por email para andre@andrenobre.pt');
+    }
+  });
+})();
+</script>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">BT<span> Vision</span></div>
+  <p style="margin-top:8px">Pré-lançamento · Portugal 2025 · Analytics para beach tennis</p>
+</footer>
+
+</body>
+</html>

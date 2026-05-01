@@ -3,6 +3,18 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
+class CoachFeedbackResponse(BaseModel):
+    id: str
+    name: str | None
+    email: str | None
+    text_feedback: str | None
+    audio_mime: str | None
+    has_audio: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class AdminVideoSummary(BaseModel):
     id: str
     filename: str

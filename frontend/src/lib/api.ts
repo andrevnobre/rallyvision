@@ -472,6 +472,27 @@ export async function adminDeleteVideo(id: string): Promise<void> {
   if (!res.ok && res.status !== 204) throw new Error(await res.text());
 }
 
+export interface AdminFeedback {
+  id: string;
+  name: string | null;
+  email: string | null;
+  text_feedback: string | null;
+  audio_mime: string | null;
+  has_audio: boolean;
+  created_at: string;
+}
+
+export async function adminListFeedback(page = 1): Promise<AdminFeedback[]> {
+  const params = new URLSearchParams({ page: String(page), limit: "50" });
+  const res = await apiFetch(`${API}/admin/feedback?${params}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export function adminFeedbackAudioUrl(id: string): string {
+  return `${API}/admin/feedback/${id}/audio`;
+}
+
 // --- anotações ---
 
 export type AnnotationTag = "tecnica" | "posicionamento" | "tatico" | "mental";
